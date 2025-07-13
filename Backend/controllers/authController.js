@@ -4,6 +4,9 @@ import User from '../Models/user.js';
 
 // Generate JWT Token
 const generateToken = (id) => {
+    if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET environment variable is not defined');
+    }
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     });
@@ -40,8 +43,28 @@ export const register = async (req, res) => {
             role
         } = req.body;
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ phoneNumber });
+        // Check if user already exists with retry logic
+        let existingUser;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+            try {
+                existingUser = await User.findOne({ phoneNumber }).maxTimeMS(15000);
+                break; // Success, exit retry loop
+            } catch (error) {
+                retryCount++;
+                console.log(`Database query attempt ${retryCount} failed:`, error.message);
+
+                if (retryCount >= maxRetries) {
+                    throw new Error('Database connection timeout after multiple retries');
+                }
+
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            }
+        }
+
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -82,7 +105,7 @@ export const register = async (req, res) => {
         if (req.files.panCard) userData.panCard = req.files.panCard[0].path;
         if (req.files.bankDetails) userData.bankDetails = req.files.bankDetails[0].path;
 
-        // Create new user
+        // Create new user with timeout
         const user = await User.create(userData);
 
         // Generate token
@@ -106,9 +129,36 @@ export const register = async (req, res) => {
 
     } catch (error) {
         console.error('Register error:', error);
+
+        // Handle specific MongoDB errors
+        if (error.message.includes('timeout') || error.message.includes('buffering timed out')) {
+            return res.status(503).json({
+                success: false,
+                message: 'Database connection timeout. Please try again in a moment.',
+                error: 'DATABASE_TIMEOUT'
+            });
+        }
+
+        if (error.name === 'MongoNetworkError' || error.name === 'MongooseServerSelectionError') {
+            return res.status(503).json({
+                success: false,
+                message: 'Database connection error. Please try again later.',
+                error: 'DATABASE_CONNECTION_ERROR'
+            });
+        }
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'User already exists with this phone number',
+                error: 'DUPLICATE_USER'
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Server error during registration'
+            message: 'Server error during registration',
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -130,8 +180,21 @@ export const login = async (req, res) => {
 
         const { phoneNumber, password } = req.body;
 
-        // Check if user exists
-        const user = await User.findOne({ phoneNumber }).select('+password');
+        // Check if user exists with timeout handling
+        let user;
+        try {
+            user = await User.findOne({ phoneNumber }).select('+password').maxTimeMS(15000);
+        } catch (dbError) {
+            if (dbError.message.includes('timeout') || dbError.message.includes('buffering timed out')) {
+                return res.status(503).json({
+                    success: false,
+                    message: 'Database connection timeout. Please try again.',
+                    error: 'DATABASE_TIMEOUT'
+                });
+            }
+            throw dbError; // Re-throw if it's not a timeout error
+        }
+
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -184,9 +247,26 @@ export const login = async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
+
+        // Handle specific error types
+        if (error.message.includes('JWT_SECRET')) {
+            return res.status(500).json({
+                success: false,
+                message: 'Server configuration error'
+            });
+        }
+
+        if (error.name === 'MongoNetworkError' || error.name === 'MongooseServerSelectionError') {
+            return res.status(500).json({
+                success: false,
+                message: 'Database connection error'
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Server error during login'
+            message: 'Server error during login',
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };

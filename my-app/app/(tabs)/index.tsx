@@ -107,7 +107,8 @@ export default function HomeScreen() {
 
     try {
       // Replace with your actual API endpoint
-      const response = await fetch('http://192.168.186.132:5000/notifications', {
+     const backendUrl=process.env.EXPO_PUBLIC_API_URL
+      const response = await fetch(`${backendUrl}/notifications`, {
         headers: {
           'Authorization': `Bearer ${user?.token}`,
         },

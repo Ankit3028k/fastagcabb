@@ -7,8 +7,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "gradleCommand": ":app:assembleDebug",
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
       }
     },
     "preview": {
@@ -18,14 +18,28 @@
         "gradleCommand": ":app:assembleRelease"
       }
     },
+    "preview-optimized": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "env": {
+          "EXPO_OPTIMIZE_SIZE": "1"
+        }
+      },
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle",
+        "buildType": "app-bundle",        
         "gradleCommand": ":app:bundleRelease"
       }
     },
     "debug-build": {
+      "distribution": "internal",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease",
@@ -33,16 +47,14 @@
           "GRADLE_OPTS": "-Dorg.gradle.daemon=false -Dorg.gradle.debug=true -Dorg.gradle.jvmargs=-Xmx4g"
         }
       },
-      "distribution": "internal",
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      
+    }
   }
 }
-
-
-

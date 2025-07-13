@@ -1,17 +1,13 @@
 // Test script for login route
 // Using built-in fetch (Node.js 18+) or fallback to https module
 
-const API_BASE_URL = 'http://192.168.186.132:5000/api';
+const API_BASE_URL = 'https://fastagcabb.onrender.com/api';
 
 // Test data - you can modify these credentials
 const testCredentials = [
   {
-    phoneNumber: '9876543210',
-    password: 'password123'
-  },
-  {
-    phoneNumber: '9123456789',
-    password: 'testpass'
+    phoneNumber: '8959305283',
+    password: '000000'
   }
 ];
 

@@ -17,7 +17,7 @@ export default function VerifyOtpScreen() {
     if (!otp.trim()) return Alert.alert('Enter OTP');
     try {
       setIsVerifying(true);
-      const res = await verifyOtpAndRegister(parsed.mobileNumber, otp, parsed);
+      const res = await verifyOtpAndRegister(parsed.phoneNumber, otp, parsed);
       if (res.success) {
         Alert.alert('Registered!', 'Your account is now created', [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]);
       } else {
