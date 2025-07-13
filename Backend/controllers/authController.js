@@ -207,7 +207,7 @@ export const login = async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid phone number or password'
+                message: 'Invalid phone  or password'
             });
         }
 
