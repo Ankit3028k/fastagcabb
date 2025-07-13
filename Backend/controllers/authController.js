@@ -186,7 +186,7 @@ export const login = async (req, res) => {
         console.log('Login attempt with password:', password);
         console.log('Login attempt for user exists:', user);
         try {
-            user = await User.findOne({ phoneNumber }).select('+password').maxTimeMS(15000);
+            user = await User.findOne({ phoneNumber })
         } catch (dbError) {
             if (dbError.message.includes('timeout') || dbError.message.includes('buffering timed out')) {
                 return res.status(503).json({
@@ -201,7 +201,7 @@ export const login = async (req, res) => {
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid phone number or password'
+                message: 'user not found'
             });
         }
 
