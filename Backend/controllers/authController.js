@@ -54,7 +54,7 @@ export const register = async (req, res) => {
                 break; // Success, exit retry loop
             } catch (error) {
                 retryCount++;
-                console.log(`Database query attempt ${retryCount} failed:`, error.message);
+                // console.log(`Database query attempt ${retryCount} failed:`, error.message);
 
                 if (retryCount >= maxRetries) {
                     throw new Error('Database connection timeout after multiple retries');
@@ -128,7 +128,7 @@ export const register = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Register error:', error);
+        // console.error('Register error:', error);
 
         // Handle specific MongoDB errors
         if (error.message.includes('timeout') || error.message.includes('buffering timed out')) {
@@ -182,11 +182,8 @@ export const login = async (req, res) => {
 
         // Check if user exists with timeout handling
         let user;
-        console.log('Login attempt with phone number:', phoneNumber);
-        console.log('Login attempt with password:', password);
-        console.log('Login attempt for user exists:', user);
         try {
-            user = await User.findOne({ phoneNumber })
+            user = await User.findOne({ phoneNumber }).select('+password').maxTimeMS(15000);
         } catch (dbError) {
             if (dbError.message.includes('timeout') || dbError.message.includes('buffering timed out')) {
                 return res.status(503).json({
@@ -201,7 +198,7 @@ export const login = async (req, res) => {
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'user not found'
+                message: 'Invalid phone number or password'
             });
         }
 
@@ -210,7 +207,7 @@ export const login = async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid phone  or password'
+                message: 'Invalid phone number or password'
             });
         }
 
@@ -249,7 +246,7 @@ export const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login error:', error);
+        // console.error('Login error:', error);
 
         // Handle specific error types
         if (error.message.includes('JWT_SECRET')) {
@@ -289,7 +286,7 @@ export const logout = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Logout error:', error);
+        // console.error('Logout error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error during logout'
