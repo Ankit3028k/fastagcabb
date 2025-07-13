@@ -21,6 +21,7 @@ const dbConnect = async () => {
             // Heartbeat frequency
             heartbeatFrequencyMS: 10000,
         };
+        console.log(`Connecting to MongoDB.. using MONGO_URI: ${process.env.MONGO_URI}`);
 
         await mongoose.connect(process.env.MONGO_URI, options);
         console.log('✅ Connected to MongoDB successfully');

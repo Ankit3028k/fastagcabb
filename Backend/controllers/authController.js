@@ -182,6 +182,9 @@ export const login = async (req, res) => {
 
         // Check if user exists with timeout handling
         let user;
+        console.log('Login attempt with phone number:', phoneNumber);
+        console.log('Login attempt with password:', password);
+        console.log('Login attempt for user exists:', user);
         try {
             user = await User.findOne({ phoneNumber }).select('+password').maxTimeMS(15000);
         } catch (dbError) {
