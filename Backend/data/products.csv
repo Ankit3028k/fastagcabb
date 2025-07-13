@@ -1,0 +1,16 @@
+id,name,category,price,stock,description,rating,brand
+1,iPhone 14 Pro,Electronics,999.99,50,Latest iPhone with advanced camera system,4.8,Apple
+2,Samsung Galaxy S23,Electronics,849.99,75,Flagship Android smartphone with excellent display,4.7,Samsung
+3,MacBook Air M2,Electronics,1199.99,30,Lightweight laptop with M2 chip,4.9,Apple
+4,Dell XPS 13,Electronics,899.99,40,Premium ultrabook for professionals,4.6,Dell
+5,Sony WH-1000XM4,Electronics,349.99,100,Noise-canceling wireless headphones,4.8,Sony
+6,Nike Air Max 270,Fashion,129.99,200,Comfortable running shoes,4.5,Nike
+7,Adidas Ultraboost 22,Fashion,179.99,150,High-performance running shoes,4.7,Adidas
+8,Levi's 501 Jeans,Fashion,59.99,300,Classic straight-fit jeans,4.4,Levi's
+9,The Great Gatsby,Books,12.99,500,Classic American novel,4.6,Scribner
+10,To Kill a Mockingbird,Books,14.99,400,Timeless story of justice and morality,4.8,Harper Lee
+11,1984,Books,13.99,350,Dystopian social science fiction novel,4.7,George Orwell
+12,Coffee Maker Pro,Home,89.99,80,Programmable coffee maker with thermal carafe,4.3,BrewMaster
+13,Instant Pot Duo,Home,79.99,120,7-in-1 electric pressure cooker,4.6,Instant Pot
+14,Dyson V11,Home,599.99,25,Cordless vacuum cleaner,4.5,Dyson
+15,KitchenAid Mixer,Home,299.99,60,Stand mixer for baking enthusiasts,4.8,KitchenAid
