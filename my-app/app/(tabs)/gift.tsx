@@ -1,11 +1,21 @@
-import { ExternalLink } from "@/components/ExternalLink";
+import React from "react";
+import {
+  TouchableOpacity,
+  Text,
+  Image,
+  StyleSheet,
+  View,
+  Dimensions,
+} from "react-native";
+import FontAwesome from "react-native-vector-icons/FontAwesome";
+import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import React from "react";
-import { TouchableOpacity, Text, Image, StyleSheet, View } from "react-native";
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
-// Sample Data for Items (like watches, etc.)
+// Screen Width
+const screenWidth = Dimensions.get("window").width;
+
+// Sample Data
 const itemsData = [
   {
     id: "1",
@@ -31,14 +41,13 @@ const itemsData = [
 
 export default function TabTwoScreen() {
   const availablePoints = 250;
-  const totalPoints = 500; // Maximum points for a full progress bar
-
-  // Calculate percentage for the progress bar
+  const totalPoints = 500;
   const progressPercentage = (availablePoints / totalPoints) * 100;
+  const giftPosition = (screenWidth - 80) * (progressPercentage / 100); // Adjust for padding
 
   return (
     <ThemedView style={styles.container}>
-      {/* Title Section */}
+      {/* Title */}
       <ThemedView style={styles.titleContainer}>
         <ThemedText
           style={{ color: "#f26621", fontStyle: "italic", padding: 10 }}
@@ -48,30 +57,50 @@ export default function TabTwoScreen() {
         </ThemedText>
       </ThemedView>
 
-      {/* Progress Bar for Available Points */}
-
-      <View style={styles.progressBarContainer}>
-        <View
-          style={[styles.progressBar, { width: `${progressPercentage}%` }]}
+      {/* Fancy Progress Path */}
+      <View style={styles.progressPathContainer}>
+        {/* Background Path */}
+        <LinearGradient
+          colors={["#fbe8d3", "#fde7c2"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.pathBackground}
         />
-        {/* Gift Icon at the end of the progress bar */}
-        {/* <FontAwesomeIcon
-          icon={faGift}
-          size={30}
-          color="#f26621"
-          style={styles.giftIcon}
-        /> */}
-        <FontAwesome size={30} name="gift" color="#f26621" style={styles.giftIcon}/>
+
+        {/* Filled Path */}
+        <View
+          style={[
+            styles.pathFill,
+            { width: `${progressPercentage}%` },
+          ]}
+        >
+          <LinearGradient
+            colors={["#ffb347", "#f26621"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+
+        {/* Moving Gift Icon */}
+        <View style={[styles.movingGiftIcon, { left: giftPosition }]}>
+          <FontAwesome name="gift" size={28} color="#fff" />
+        </View>
       </View>
-      
-      {/* Available Points Section */}
+
+      {/* Percentage Text */}
+      <Text style={styles.creativeProgressText}>
+        {availablePoints} / {totalPoints} Points
+      </Text>
+
+      {/* Points Display */}
       <ThemedView style={styles.pointsContainer}>
         <ThemedText style={styles.pointText} type="defaultSemiBold">
           Available Points: {availablePoints}
         </ThemedText>
       </ThemedView>
 
-      {/* List of Reward Items */}
+      {/* Items */}
       {itemsData.map((item) => (
         <View key={item.id} style={styles.itemContainer}>
           <View style={styles.itemImageContainer}>
@@ -145,7 +174,7 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 10,
-    backgroundColor: "#f26621", // You can change the color to suit your theme
+    backgroundColor: "#f26621",
     borderRadius: 10,
     alignItems: "center",
   },
@@ -154,22 +183,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  progressBarContainer: {
+
+  // Creative Progress Bar
+  progressPathContainer: {
+    height: 30,
+    width: "100%",
+    backgroundColor: "#fbe8d3",
+    borderRadius: 15,
+    overflow: "hidden",
+    marginBottom: 15,
     position: "relative",
-    height: 15,
-    backgroundColor: "#ddd",
-    borderRadius: 10,
-    marginVertical: 10,
-    justifyContent: "center",
   },
-  progressBar: {
+  pathBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 15,
+  },
+  pathFill: {
     height: "100%",
-    backgroundColor: "#f26621",
-    borderRadius: 10,
+    borderRadius: 15,
+    overflow: "hidden",
   },
-  giftIcon: {
+  movingGiftIcon: {
     position: "absolute",
-    right: -15,
-    top: -5,
+    top: -6,
+    backgroundColor: "#f26621",
+    borderRadius: 20,
+    padding: 6,
+    elevation: 5,
+    zIndex: 10,
+  },
+  creativeProgressText: {
+    textAlign: "center",
+    fontWeight: "bold",
+    color: "#444",
+    fontSize: 16,
+    marginBottom: 5,
   },
 });

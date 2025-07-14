@@ -166,6 +166,10 @@ class Infobip2FAService {
       const templateResult = await this.createMessageTemplate();
       if (templateResult.success) {
         console.log('Message template created successfully');
+        // Store message template ID
+        if (templateResult.data?.messageId) {
+          await AsyncStorage.setItem('infobip_message_id', templateResult.data.messageId);
+        }
       } else {
         console.warn('Failed to create message template:', templateResult.message);
       }
@@ -187,9 +191,23 @@ class Infobip2FAService {
     // Format phone number (ensure it starts with country code)
     const formattedPhone = phoneNumber.startsWith('+91') ? phoneNumber : `+91${phoneNumber}`;
 
+    // Get stored message template ID
+    const messageTemplateId = await AsyncStorage.getItem('infobip_message_id');
+
     // Try different request formats
     const otpDataOptions = [
-      // Option 1: Standard format with required fields
+      // Option 1: With message template ID (if available)
+      ...(messageTemplateId ? [{
+        applicationId: this.applicationId,
+        messageId: `FASTAGCAB_${Date.now()}`,
+        from: "FASTAGCAB",
+        to: formattedPhone,
+        messageTemplateId: messageTemplateId,
+        placeholders: {
+          "companyName": "FASTAGCAB"
+        }
+      }] : []),
+      // Option 2: Standard format with required fields
       {
         applicationId: this.applicationId,
         messageId: `FASTAGCAB_${Date.now()}`,
@@ -198,7 +216,7 @@ class Infobip2FAService {
         pinType: "NUMERIC",
         pinLength: 6
       },
-      // Option 2: With message template
+      // Option 3: With message template
       {
         applicationId: this.applicationId,
         messageId: `FASTAGCAB_${Date.now()}`,
@@ -208,7 +226,7 @@ class Infobip2FAService {
         pinType: "NUMERIC",
         pinLength: 6
       },
-      // Option 3: With placeholders
+      // Option 4: With placeholders
       {
         applicationId: this.applicationId,
         messageId: `FASTAGCAB_${Date.now()}`,

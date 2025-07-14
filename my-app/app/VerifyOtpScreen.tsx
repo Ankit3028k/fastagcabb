@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { router, useSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 export default function VerifyOtpScreen() {
-  const { form } = useSearchParams();
+  const { form } = useLocalSearchParams();
   const parsed = form ? JSON.parse(form as string) : null;
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -28,16 +28,19 @@ export default function VerifyOtpScreen() {
   const onVerify = async () => {
     if (!parsed) return;
     if (!otp.trim()) return Alert.alert('Error', 'Please enter the OTP');
-    if (otp.length !== 4) return Alert.alert('Error', 'Please enter a valid 4-digit OTP');
+    if (otp.length !== 6) return Alert.alert('Error', 'Please enter a valid 6-digit OTP');
     
     try {
       setIsVerifying(true);
       const res = await verifyOtpAndRegister(parsed.phoneNumber, otp, parsed);
       if (res.success) {
+        const redirectPath = res.autoLogin ? '/(tabs)' : '/login';
+        const message = res.message || 'Your account has been created successfully. Welcome to FASTAGCAB!';
+
         Alert.alert(
-          'Registration Successful!', 
-          res.message || 'Your account has been created successfully. Welcome to FASTAGCAB!', 
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+          'Registration Successful!',
+          message,
+          [{ text: 'OK', onPress: () => router.replace(redirectPath) }]
         );
       } else {
         Alert.alert('Verification Failed', res.message || 'Invalid OTP. Please try again.');
@@ -78,17 +81,17 @@ export default function VerifyOtpScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>Verify Your Phone Number</Text>
         <Text style={styles.subtitle}>
-          We've sent a 4-digit OTP to {parsed?.phoneNumber}
+          We've sent a 6-digit OTP to {parsed?.phoneNumber}
         </Text>
         
         <View style={styles.otpContainer}>
           <TextInput 
             keyboardType="numeric" 
             style={styles.otpInput} 
-            placeholder="Enter 4-digit OTP" 
-            value={otp} 
+            placeholder="Enter 6-digit OTP"
+            value={otp}
             onChangeText={setOtp}
-            maxLength={4}
+            maxLength={6}
             textAlign="center"
             fontSize={24}
             autoFocus
@@ -96,9 +99,9 @@ export default function VerifyOtpScreen() {
         </View>
 
         <TouchableOpacity 
-          style={[styles.verifyButton, (!otp || otp.length !== 4) && styles.disabledButton]} 
-          onPress={onVerify} 
-          disabled={isVerifying || !otp || otp.length !== 4}
+          style={[styles.verifyButton, (!otp || otp.length !== 6) && styles.disabledButton]}
+          onPress={onVerify}
+          disabled={isVerifying || !otp || otp.length !== 6}
         >
           {isVerifying ? (
             <ActivityIndicator color="#fff" />
@@ -174,8 +177,8 @@ const styles = StyleSheet.create({
     fontSize: 24, 
     textAlign: 'center',
     backgroundColor: '#fff',
-    width: 200,
-    letterSpacing: 8,
+    width: 250,
+    letterSpacing: 6,
     fontWeight: '600'
   },
   verifyButton: { 

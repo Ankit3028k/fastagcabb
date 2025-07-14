@@ -21,7 +21,7 @@ export default function RegisterScreen() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { sendOtpRequest } = useAuth();
+  const { sendOtpRequest, login } = useAuth();
 
   const update = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -56,15 +56,33 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!validate()) return;
+    console.log('🔍 Validating form data...');
+    console.log('📋 Current form state:', form);
+    const isValid = validate();
+    console.log('✅ Validation result:', isValid);
+    console.log('❌ Validation errors:', errors);
+
+    if (!isValid) {
+      console.log('🚫 Validation failed, stopping registration');
+      return;
+    }
+
+    // Additional check for dateOfBirth
+    if (!form.dateOfBirth) {
+      Alert.alert('Error', 'Please select your date of birth');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      console.log('🚀 Starting registration process for phone:', form.phoneNumber);
       const res = await sendOtpRequest(form.phoneNumber);
+      console.log('📱 OTP request result:', res);
       if (res.success) {
         const payload = {
           fullName: form.fullName,
           password: form.password,
-          dateOfBirth: form.dateOfBirth,
+          dateOfBirth: form.dateOfBirth instanceof Date ? form.dateOfBirth : (form.dateOfBirth ? new Date(form.dateOfBirth) : new Date()),
           age: parseInt(form.age),
           phoneNumber: form.phoneNumber,
           adharNumber: form.adharNumber,
@@ -81,8 +99,14 @@ export default function RegisterScreen() {
           role: form.role
         };
 
+        console.log('📋 Registration payload prepared:', {
+          ...payload,
+          dateOfBirth: payload.dateOfBirth.toISOString(),
+          password: '[HIDDEN]'
+        });
+
         router.push({
-          pathname: '/screens/VerifyOtpScreen',
+          pathname: '/VerifyOtpScreen',
           params: { form: JSON.stringify(payload) }
         });
       } else {
@@ -194,6 +218,67 @@ export default function RegisterScreen() {
               <Picker.Item label="Distributor" value="Distributor" />
             </Picker>
           </View>
+
+          {/* Debug Buttons - Remove after testing */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#ff6b6b', marginBottom: 10 }]}
+            onPress={() => {
+              console.log('🔍 Debug - Current form state:', form);
+              console.log('🔍 Debug - Current errors:', errors);
+              const testValid = validate();
+              console.log('🔍 Debug - Validation result:', testValid);
+            }}
+          >
+            <Text style={styles.buttonText}>Debug Form</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#9b59b6', marginBottom: 10 }]}
+            onPress={async () => {
+              try {
+                console.log('🌐 Testing backend connection...');
+                const backendUrl = 'https://fastagcabb.onrender.com';
+                const testUrl = `${backendUrl}/api/auth/test`;
+                console.log('📡 Testing URL:', testUrl);
+
+                const response = await fetch(testUrl);
+                console.log('📡 Test response status:', response.status);
+                const data = await response.json();
+                console.log('📡 Test response data:', data);
+
+                Alert.alert('Backend Test', `Status: ${response.status}\nMessage: ${data.message || 'Connected'}`);
+              } catch (error: any) {
+                console.error('🚨 Backend test failed:', error);
+                Alert.alert('Backend Test Failed', error.message || 'Unknown error');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Test Backend</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#27ae60', marginBottom: 10 }]}
+            onPress={async () => {
+              try {
+                console.log('🧪 Testing mock login...');
+                const result = await login('8959305284', 'securePass123');
+                console.log('🧪 Mock login result:', result);
+
+                if (result.success) {
+                  Alert.alert('Mock Login Success', result.message, [
+                    { text: 'OK', onPress: () => router.replace('/(tabs)') }
+                  ]);
+                } else {
+                  Alert.alert('Mock Login Failed', result.message);
+                }
+              } catch (error: any) {
+                console.error('🚨 Mock login test failed:', error);
+                Alert.alert('Mock Login Test Failed', error.message || 'Unknown error');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Test Mock Login</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.button}

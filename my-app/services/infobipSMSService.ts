@@ -28,14 +28,19 @@ class InfobipSMSService {
   // Send SMS using Infobip SMS API
   async sendOTP(phoneNumber: string): Promise<InfobipSMSResponse> {
     try {
+      console.log('📱 SMS Service: Starting OTP send for:', phoneNumber);
+
       // Generate OTP
       const otp = this.generateOTP();
-      
+      console.log('🔢 SMS Service: Generated OTP:', otp);
+
       // Format phone number
       const formattedPhone = phoneNumber.startsWith('+91') ? phoneNumber : `+91${phoneNumber}`;
-      
+      console.log('📞 SMS Service: Formatted phone:', formattedPhone);
+
       // Prepare SMS message
       const message = `Your FASTAGCAB verification code is ${otp}. Valid for 15 minutes. Do not share this code with anyone.`;
+      console.log('💬 SMS Service: Message prepared:', message);
       
       // SMS API request
       const smsData = {
@@ -55,6 +60,8 @@ class InfobipSMSService {
       console.log('Sending SMS via Infobip to:', formattedPhone);
       console.log('SMS data:', JSON.stringify(smsData, null, 2));
 
+      console.log('🌐 SMS Service: Making fetch request to:', `${this.baseURL}/sms/2/text/advanced`);
+
       const response = await fetch(`${this.baseURL}/sms/2/text/advanced`, {
         method: 'POST',
         headers: {
@@ -64,6 +71,8 @@ class InfobipSMSService {
         },
         body: JSON.stringify(smsData)
       });
+
+      console.log('📡 SMS Service: Response received, status:', response.status);
 
       const responseData = await response.json();
       
@@ -94,10 +103,16 @@ class InfobipSMSService {
         };
       }
     } catch (error) {
-      console.error('SMS send error:', error);
+      console.error('🚨 SMS send error:', error);
+      console.error('🚨 SMS error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
       return {
         success: false,
-        message: 'Network error. Please check your connection and try again.'
+        message: `Network error: ${error.message}. Please check your connection and try again.`
       };
     }
   }

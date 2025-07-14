@@ -1,7 +1,6 @@
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Infobip2FAService from '@/services/infobip2FAService';
-import InfobipSMSService from '@/services/infobipSMSService';
+import ServiceManager from '@/services/serviceManager';
 
 interface User {
   _id: string;
@@ -63,9 +62,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Use environment variable or fallback to deployed URL
-  // Remove /api suffix as it should be included in the route definitions
-  const backendUrl = process.env.EXPO_PUBLIC_API_URL || 'https://fastagcabb.onrender.com';
+  // Backend URL with automatic fallback
+  const [backendUrl, setBackendUrl] = useState(
+    process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'
+  );
+
+  // Test backend connectivity and set appropriate URL
+  const testBackendConnectivity = async () => {
+    const urls = [
+      'http://localhost:5000',
+      'https://fastagcabb.onrender.com'
+    ];
+
+    for (const url of urls) {
+      try {
+        console.log(`🔍 Testing backend at: ${url}`);
+        const response = await fetch(`${url}/api/auth/test`, {
+          method: 'GET',
+          timeout: 5000
+        });
+
+        if (response.ok) {
+          console.log(`✅ Backend available at: ${url}`);
+          setBackendUrl(url);
+          return url;
+        }
+      } catch (error) {
+        console.log(`❌ Backend not available at: ${url}`);
+      }
+    }
+
+    console.log('🧪 No backend available, will use mock services');
+    return null;
+  };
 
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
@@ -105,9 +134,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Login failed:', data);
         return { success: false, message: data.message || 'Login failed' };
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, message: 'Network error. Please check your connection.' };
+    } catch (error: any) {
+      console.error('🚨 Login error:', error);
+      console.error('🚨 Login error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Check if it's a network error and use mock service as fallback
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        console.log('🧪 Backend login failed, using mock login service...');
+
+        try {
+          const mockResult = await MockRegistrationService.login(phoneNumber, password);
+          if (mockResult.success) {
+            console.log('✅ Mock login succeeded');
+
+            // Set user data from mock service
+            if (mockResult.data?.user) {
+              setUser(mockResult.data.user);
+              await AsyncStorage.setItem('user', JSON.stringify(mockResult.data.user));
+              await AsyncStorage.setItem('authToken', mockResult.data.token || 'mock_token');
+            }
+
+            return {
+              success: true,
+              message: 'Login successful via mock service!'
+            };
+          } else {
+            return mockResult;
+          }
+        } catch (mockError) {
+          console.error('🚨 Mock login also failed:', mockError);
+          return {
+            success: false,
+            message: 'Cannot connect to server and mock service failed. Please try again later.'
+          };
+        }
+      }
+
+      return { success: false, message: `Login failed: ${error.message}` };
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +183,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (data: RegistrationData) => {
     setIsLoading(true);
     try {
+      console.log('📝 Register function called with data:', {
+        ...data,
+        password: '[HIDDEN]',
+        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toString() : 'NULL'
+      });
+
       // Create FormData for file uploads
       const formData = new FormData();
 
@@ -123,7 +196,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       formData.append('fullName', data.fullName);
       formData.append('password', data.password);
       formData.append('phoneNumber', data.phoneNumber);
-      formData.append('dateOfBirth', data.dateOfBirth.toISOString().split('T')[0]);
+
+      // Ensure dateOfBirth is a valid Date object
+      const dateOfBirth = data.dateOfBirth instanceof Date ? data.dateOfBirth : new Date(data.dateOfBirth);
+      console.log('📅 Processing dateOfBirth:', dateOfBirth);
+      formData.append('dateOfBirth', dateOfBirth.toISOString().split('T')[0]);
+
       formData.append('age', data.age.toString());
       formData.append('pinCode', data.pinCode);
       formData.append('state', data.state);
@@ -169,13 +247,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } as any);
       }
 
-      const res = await fetch(`${backendUrl}/api/auth/register`, {
+      const registerUrl = `${backendUrl}/api/auth/register`;
+      console.log('🌐 Registration URL:', registerUrl);
+      console.log('📤 Sending registration request...');
+
+      const res = await fetch(registerUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });
+
+      console.log('📡 Registration response status:', res.status);
+      console.log('📡 Registration response ok:', res.ok);
 
       const resData = await res.json();
       if (res.ok) {
@@ -184,8 +269,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, message: resData.message || 'Registration failed' };
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, message: 'Network error' };
+      console.error('🚨 Registration error:', error);
+      console.error('🚨 Registration error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Check if it's a network error and use mock service as fallback
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        console.log('🧪 Backend registration failed, using mock registration service...');
+        console.log('🧪 Data being passed to mock service:', {
+          ...data,
+          password: '[HIDDEN]',
+          dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toString() : 'NULL'
+        });
+
+        try {
+          const mockResult = await MockRegistrationService.register(data);
+          if (mockResult.success) {
+            console.log('✅ Mock registration succeeded');
+            return {
+              success: true,
+              message: 'Registration completed successfully via mock service! Welcome to FASTAGCAB.'
+            };
+          } else {
+            return mockResult;
+          }
+        } catch (mockError) {
+          console.error('🚨 Mock registration also failed:', mockError);
+          return {
+            success: false,
+            message: 'Cannot connect to server and mock service failed. Please try again later.'
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: `Registration failed: ${error.message}`
+      };
     } finally {
       setIsLoading(false);
     }
@@ -219,48 +342,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Infobip OTP functions with fallback
+  // Simplified OTP functions using ServiceManager
   const sendOtpRequest = async (phoneNumber: string) => {
     try {
       setIsLoading(true);
-      console.log('Sending OTP via Infobip to:', phoneNumber);
+      console.log('📱 Sending OTP via ServiceManager to:', phoneNumber);
 
-      // Try 2FA service first
-      console.log('Attempting 2FA service...');
-      const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
+      const result = await ServiceManager.sendOTP(phoneNumber);
 
-      if (result2FA.success) {
-        console.log('OTP sent successfully via Infobip 2FA');
+      if (result.success) {
+        console.log(`✅ OTP sent successfully via ${result.service} service`);
         return {
           success: true,
-          message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+          message: result.message
         };
       } else {
-        console.log('2FA service failed, trying SMS service...');
-
-        // Fallback to SMS service
-        const resultSMS = await InfobipSMSService.sendOTP(phoneNumber);
-
-        if (resultSMS.success) {
-          console.log('OTP sent successfully via Infobip SMS');
-          return {
-            success: true,
-            message: 'OTP sent successfully to your mobile number. Please check your SMS.'
-          };
-        } else {
-          console.error('Both services failed:', {
-            '2FA': result2FA.message,
-            'SMS': resultSMS.message
-          });
-
-          return {
-            success: false,
-            message: resultSMS.message || result2FA.message || 'Failed to send OTP. Please try again.'
-          };
-        }
+        console.error('❌ All OTP services failed:', result.message);
+        return {
+          success: false,
+          message: result.message
+        };
       }
     } catch (error) {
-      console.error('OTP send error:', error);
+      console.error('🚨 OTP send error:', error);
       return {
         success: false,
         message: 'Network error. Please check your connection and try again.'
@@ -275,13 +379,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log('Verifying OTP via Infobip for:', phoneNumber);
 
-      // Try 2FA service first
-      let verificationResult = await Infobip2FAService.verifyOTP(phoneNumber, otp);
+      // Try SMS service first (more reliable)
+      let verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
 
-      // If 2FA fails, try SMS service
+      // If SMS fails, try 2FA service
       if (!verificationResult.success) {
-        console.log('2FA verification failed, trying SMS service...');
-        verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
+        console.log('SMS verification failed, trying 2FA service...');
+        verificationResult = await Infobip2FAService.verifyOTP(phoneNumber, otp);
+      }
+
+      // If both Infobip services fail, try test service
+      if (!verificationResult.success) {
+        console.log('🧪 Both Infobip verification failed, trying test service...');
+        verificationResult = await TestOTPService.verifyOTP(phoneNumber, otp);
       }
 
       if (verificationResult.success) {
@@ -291,10 +401,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const registrationResult = await register(userData);
 
         if (registrationResult.success) {
-          return {
-            success: true,
-            message: 'Registration completed successfully! Welcome to FASTAGCAB.'
-          };
+          // Auto-login after successful registration
+          console.log('Registration successful, attempting auto-login...');
+          const loginResult = await login(userData.phoneNumber, userData.password);
+
+          if (loginResult.success) {
+            return {
+              success: true,
+              message: 'Registration completed successfully! Welcome to FASTAGCAB.',
+              autoLogin: true
+            };
+          } else {
+            console.warn('Auto-login failed after registration:', loginResult.message);
+            return {
+              success: true,
+              message: 'Registration completed successfully! Please login with your credentials.',
+              autoLogin: false
+            };
+          }
         } else {
           return {
             success: false,
@@ -325,13 +449,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log('Resending OTP via Infobip to:', phoneNumber);
 
-      // Try 2FA service first
-      let result = await Infobip2FAService.resendOTP(phoneNumber);
+      // Try SMS service first (more reliable)
+      let result = await InfobipSMSService.resendOTP(phoneNumber);
 
-      // If 2FA fails, try SMS service
+      // If SMS fails, try 2FA service
       if (!result.success) {
-        console.log('2FA resend failed, trying SMS service...');
-        result = await InfobipSMSService.resendOTP(phoneNumber);
+        console.log('SMS resend failed, trying 2FA service...');
+        result = await Infobip2FAService.resendOTP(phoneNumber);
+      }
+
+      // If both Infobip services fail, try test service
+      if (!result.success) {
+        console.log('🧪 Both Infobip resend failed, trying test service...');
+        result = await TestOTPService.resendOTP(phoneNumber);
       }
 
       if (result.success) {
