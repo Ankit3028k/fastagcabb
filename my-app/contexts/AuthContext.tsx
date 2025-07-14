@@ -1,6 +1,9 @@
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import ServiceManager from '@/services/serviceManager';
+import Infobip2FAService from '@/services/infobip2FAService';
+import InfobipSMSService from '@/services/infobipSMSService';
+import TestOTPService from '@/services/testOTPService';
+import MockRegistrationService from '@/services/mockRegistrationService';
 
 interface User {
   _id: string;
@@ -62,39 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Backend URL with automatic fallback
-  const [backendUrl, setBackendUrl] = useState(
-    process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'
-  );
-
-  // Test backend connectivity and set appropriate URL
-  const testBackendConnectivity = async () => {
-    const urls = [
-      'http://localhost:5000',
-      'https://fastagcabb.onrender.com'
-    ];
-
-    for (const url of urls) {
-      try {
-        console.log(`🔍 Testing backend at: ${url}`);
-        const response = await fetch(`${url}/api/auth/test`, {
-          method: 'GET',
-          timeout: 5000
-        });
-
-        if (response.ok) {
-          console.log(`✅ Backend available at: ${url}`);
-          setBackendUrl(url);
-          return url;
-        }
-      } catch (error) {
-        console.log(`❌ Backend not available at: ${url}`);
-      }
-    }
-
-    console.log('🧪 No backend available, will use mock services');
-    return null;
-  };
+  // Use environment variable or fallback to localhost for development
+  const backendUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
@@ -342,29 +314,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Simplified OTP functions using ServiceManager
+  // Infobip OTP functions with fallback
   const sendOtpRequest = async (phoneNumber: string) => {
     try {
       setIsLoading(true);
-      console.log('📱 Sending OTP via ServiceManager to:', phoneNumber);
+      console.log('Sending OTP via Infobip to:', phoneNumber);
 
-      const result = await ServiceManager.sendOTP(phoneNumber);
+      // Use SMS service directly (2FA service has configuration issues)
+      console.log('Using SMS service for OTP...');
+      const resultSMS = await InfobipSMSService.sendOTP(phoneNumber);
 
-      if (result.success) {
-        console.log(`✅ OTP sent successfully via ${result.service} service`);
+      if (resultSMS.success) {
+        console.log('OTP sent successfully via Infobip SMS');
         return {
           success: true,
-          message: result.message
+          message: 'OTP sent successfully to your mobile number. Please check your SMS.'
         };
       } else {
-        console.error('❌ All OTP services failed:', result.message);
-        return {
-          success: false,
-          message: result.message
-        };
+        console.error('SMS service failed:', resultSMS.message);
+
+        // Try 2FA service as fallback (though it's currently failing)
+        console.log('SMS failed, trying 2FA service as fallback...');
+        const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
+
+        if (result2FA.success) {
+          console.log('OTP sent successfully via Infobip 2FA');
+          return {
+            success: true,
+            message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+          };
+        } else {
+          console.error('Both Infobip services failed:', {
+            'SMS': resultSMS.message,
+            '2FA': result2FA.message
+          });
+
+          // Use test OTP service as final fallback
+          console.log('🧪 Both Infobip services failed, using test OTP service...');
+          const testResult = await TestOTPService.sendOTP(phoneNumber);
+
+          if (testResult.success) {
+            console.log('✅ Test OTP service succeeded');
+            return {
+              success: true,
+              message: 'OTP sent successfully via test service. Check console for OTP.'
+            };
+          } else {
+            console.error('❌ All services failed including test service');
+            return {
+              success: false,
+              message: 'All OTP services failed. Please try again later.'
+            };
+          }
+        }
       }
     } catch (error) {
-      console.error('🚨 OTP send error:', error);
+      console.error('OTP send error:', error);
       return {
         success: false,
         message: 'Network error. Please check your connection and try again.'

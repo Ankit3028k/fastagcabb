@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform
@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 
+
 export default function RegisterScreen() {
   const [form, setForm] = useState({
     fullName: '', password: '', dateOfBirth: null as Date | null,
@@ -21,10 +22,11 @@ export default function RegisterScreen() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { sendOtpRequest, login } = useAuth();
+  const { sendOtpRequest } = useAuth();
 
-  const update = (field: string, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+  // Update function for form fields
+  const update = useCallback((field: string, value: any) => {
+    setForm(prev => ({ ...prev, [field]: typeof value === 'string' ? value.trim() : value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
     if (field === 'dateOfBirth' && value instanceof Date) {
       const today = new Date();
@@ -33,56 +35,47 @@ export default function RegisterScreen() {
       if (m < 0 || (m === 0 && today.getDate() < value.getDate())) age--;
       setForm(prev => ({ ...prev, age: age.toString() }));
     }
-  };
+  }, [errors]);
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.fullName.trim()) e.fullName = 'Required';
-    if (!form.password || form.password.length < 6) e.password = 'Min 6 chars';
-    if (!form.dateOfBirth) e.dateOfBirth = 'Required';
-    if (!form.age || +form.age < 18) e.age = 'Invalid age';
-    if (!form.phoneNumber) e.phoneNumber = 'Required';
-    else if (!/^[6-9]\d{9}$/.test(form.phoneNumber)) e.phoneNumber = 'Invalid phone';
-    if (form.adharNumber && !/^\d{12}$/.test(form.adharNumber)) e.adharNumber = 'Must be 12 digits';
-    if (form.panCardNumber && !/^[A-Z]{5}\d{4}[A-Z]$/.test(form.panCardNumber)) e.panCardNumber = 'Invalid PAN';
-    if (!form.pinCode || !/^\d{6}$/.test(form.pinCode)) e.pinCode = '6-digit PIN';
-    if (!form.state.trim()) e.state = 'Required';
-    if (!form.city.trim()) e.city = 'Required';
-    if (!form.address.trim()) e.address = 'Required';
+    if (!form.fullName.trim()) e.fullName = 'Full Name is required';
+    if (!form.password || form.password.length < 6) e.password = 'Password must be at least 6 characters';
+    if (!form.dateOfBirth) e.dateOfBirth = 'Date of Birth is required';
+    if (!form.age || +form.age < 18) e.age = 'Must be at least 18 years old';
+    if (!form.phoneNumber) e.phoneNumber = 'Phone Number is required';
+    else if (!/^[6-9]\d{9}$/.test(form.phoneNumber)) e.phoneNumber = 'Invalid phone number';
+    if (form.adharNumber && !/^\d{12}$/.test(form.adharNumber)) e.adharNumber = 'Aadhar must be 12 digits';
+    if (form.panCardNumber && !/^[A-Z]{5}\d{4}[A-Z]$/.test(form.panCardNumber)) e.panCardNumber = 'Invalid PAN format';
+    if (!form.pinCode || !/^\d{6}$/.test(form.pinCode)) e.pinCode = 'PIN must be 6 digits';
+    if (!form.state.trim()) e.state = 'State is required';
+    if (!form.city.trim()) e.city = 'City is required';
+    if (!form.address.trim()) e.address = 'Address is required';
     if (!form.dealerCode.trim()) e.dealerCode = 'Dealer Code is required';
-    if (!form.profilePhoto) e.profilePhoto = 'Required';
+    if (!form.profilePhoto) e.profilePhoto = 'Profile Photo is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleRegister = async () => {
     console.log('🔍 Validating form data...');
-    console.log('📋 Current form state:', form);
-    const isValid = validate();
-    console.log('✅ Validation result:', isValid);
-    console.log('❌ Validation errors:', errors);
-
-    if (!isValid) {
-      console.log('🚫 Validation failed, stopping registration');
-      return;
-    }
-
-    // Additional check for dateOfBirth
-    if (!form.dateOfBirth) {
-      Alert.alert('Error', 'Please select your date of birth');
+    console.log('📋 Current form state:', { ...form, password: '[HIDDEN]' });
+    if (!validate()) {
+      console.log('🚫 Validation failed:', errors);
+      Alert.alert('Validation Error', 'Please correct the errors in the form.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      console.log('🚀 Starting registration process for phone:', form.phoneNumber);
+      console.log('🚀 Sending OTP request for:', form.phoneNumber);
       const res = await sendOtpRequest(form.phoneNumber);
       console.log('📱 OTP request result:', res);
       if (res.success) {
         const payload = {
           fullName: form.fullName,
           password: form.password,
-          dateOfBirth: form.dateOfBirth instanceof Date ? form.dateOfBirth : (form.dateOfBirth ? new Date(form.dateOfBirth) : new Date()),
+          dateOfBirth: form.dateOfBirth instanceof Date ? form.dateOfBirth : new Date(),
           age: parseInt(form.age),
           phoneNumber: form.phoneNumber,
           adharNumber: form.adharNumber,
@@ -99,21 +92,17 @@ export default function RegisterScreen() {
           role: form.role
         };
 
-        console.log('📋 Registration payload prepared:', {
-          ...payload,
-          dateOfBirth: payload.dateOfBirth.toISOString(),
-          password: '[HIDDEN]'
-        });
-
+        console.log('📋 Registration payload:', { ...payload, password: '[HIDDEN]' });
         router.push({
           pathname: '/VerifyOtpScreen',
           params: { form: JSON.stringify(payload) }
         });
       } else {
-        Alert.alert('Error', res.message);
+        Alert.alert('Error', res.message || 'Failed to send OTP');
       }
-    } catch {
-      Alert.alert('Error', 'OTP send failed');
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert('Error', 'Failed to send OTP. Please check your network and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -135,40 +124,54 @@ export default function RegisterScreen() {
             error={errors.profilePhoto}
           />
 
-          <Field label="Full Name*" value={form.fullName} error={errors.fullName} onChange={t => update('fullName', t)} />
-          <Field label="Password*" value={form.password} error={errors.password} onChange={t => update('password', t)} secure />
+          <Field
+            label="Full Name*"
+            value={form.fullName}
+            error={errors.fullName}
+            onChange={(t: string) => update('fullName', t)}
+            placeholder="Enter your full name"
+          />
+          <Field
+            label="Password*"
+            value={form.password}
+            error={errors.password}
+            onChange={(t: string) => update('password', t)}
+            secure
+            placeholder="Enter your password"
+          />
 
           <DatePickerInput
             date={form.dateOfBirth}
             onChange={d => update('dateOfBirth', d)}
             error={errors.dateOfBirth}
           />
-          <View style={styles.field}>
-            <Text style={styles.label}>Age</Text>
-            <TextInput
-              style={[styles.input, errors.age && styles.errorInput]}
-              value={form.age}
-              editable={false}
-            />
-          </View>
+          <Field
+            label="Age"
+            value={form.age}
+            error={errors.age}
+            editable={false}
+            placeholder="Calculated automatically"
+          />
 
           <Field
             label="Phone Number*"
             value={form.phoneNumber}
             error={errors.phoneNumber}
-            onChange={t => update('phoneNumber', t)}
+            onChange={(t: string) => update('phoneNumber', t)}
             keyboardType="phone-pad"
+            placeholder="Enter your phone number"
           />
 
           <Field
             label="Aadhar Number (Optional)"
             value={form.adharNumber}
             error={errors.adharNumber}
-            onChange={t => update('adharNumber', t)}
+            onChange={(t: string) => update('adharNumber', t)}
             keyboardType="numeric"
+            placeholder="Enter 12-digit Aadhar number"
           />
           <PhotoUpload
-            title="Upload Aadhar Photo"
+            title="Upload Aadhar Photo (Optional)"
             value={form.adharCard}
             onPhotoSelected={uri => update('adharCard', uri)}
           />
@@ -177,36 +180,62 @@ export default function RegisterScreen() {
             label="PAN Card (Optional)"
             value={form.panCardNumber}
             error={errors.panCardNumber}
-            onChange={t => update('panCardNumber', t)}
+            onChange={(t: string) => update('panCardNumber', t)}
             autoCapitalize="characters"
+            placeholder="Enter PAN number"
           />
           <PhotoUpload
-            title="Upload PAN Photo"
+            title="Upload PAN Photo (Optional)"
             value={form.panCard}
             onPhotoSelected={uri => update('panCard', uri)}
           />
 
           <PhotoUpload
-            title="Upload Bank Details (Passbook/Statement)"
+            title="Upload Bank Details (Optional)"
             value={form.bankDetails}
             onPhotoSelected={uri => update('bankDetails', uri)}
           />
 
-          <Field label="PIN Code*" value={form.pinCode} error={errors.pinCode} onChange={t => update('pinCode', t)} keyboardType="numeric" />
-          <Field label="State*" value={form.state} error={errors.state} onChange={t => update('state', t)} />
-          <Field label="City*" value={form.city} error={errors.city} onChange={t => update('city', t)} />
+          <Field
+            label="PIN Code*"
+            value={form.pinCode}
+            error={errors.pinCode}
+            onChange={(t: string) => update('pinCode', t)}
+            keyboardType="numeric"
+            placeholder="Enter 6-digit PIN code"
+          />
+          <Field
+            label="State*"
+            value={form.state}
+            error={errors.state}
+            onChange={(t: string) => update('state', t)}
+            placeholder="Enter your state"
+          />
+          <Field
+            label="City*"
+            value={form.city}
+            error={errors.city}
+            onChange={(t: string) => update('city', t)}
+            placeholder="Enter your city"
+          />
           <Field
             label="Address*"
             value={form.address}
             error={errors.address}
-            onChange={t => update('address', t)}
+            onChange={(t: string) => update('address', t)}
             multiline
             numberOfLines={3}
+            placeholder="Enter your full address"
           />
 
-          <Field label="Dealer Code*" value={form.dealerCode} error={errors.dealerCode} onChange={t => update('dealerCode', t)} />
+          <Field
+            label="Dealer Code*"
+            value={form.dealerCode}
+            error={errors.dealerCode}
+            onChange={(t: string) => update('dealerCode', t)}
+            placeholder="Enter dealer code"
+          />
 
-          {/* Role Picker */}
           <View style={styles.field}>
             <Text style={styles.label}>Role*</Text>
             <Picker
@@ -219,73 +248,16 @@ export default function RegisterScreen() {
             </Picker>
           </View>
 
-          {/* Debug Buttons - Remove after testing */}
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#ff6b6b', marginBottom: 10 }]}
-            onPress={() => {
-              console.log('🔍 Debug - Current form state:', form);
-              console.log('🔍 Debug - Current errors:', errors);
-              const testValid = validate();
-              console.log('🔍 Debug - Validation result:', testValid);
-            }}
-          >
-            <Text style={styles.buttonText}>Debug Form</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#9b59b6', marginBottom: 10 }]}
-            onPress={async () => {
-              try {
-                console.log('🌐 Testing backend connection...');
-                const backendUrl = 'https://fastagcabb.onrender.com';
-                const testUrl = `${backendUrl}/api/auth/test`;
-                console.log('📡 Testing URL:', testUrl);
-
-                const response = await fetch(testUrl);
-                console.log('📡 Test response status:', response.status);
-                const data = await response.json();
-                console.log('📡 Test response data:', data);
-
-                Alert.alert('Backend Test', `Status: ${response.status}\nMessage: ${data.message || 'Connected'}`);
-              } catch (error: any) {
-                console.error('🚨 Backend test failed:', error);
-                Alert.alert('Backend Test Failed', error.message || 'Unknown error');
-              }
-            }}
-          >
-            <Text style={styles.buttonText}>Test Backend</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#27ae60', marginBottom: 10 }]}
-            onPress={async () => {
-              try {
-                console.log('🧪 Testing mock login...');
-                const result = await login('8959305284', 'securePass123');
-                console.log('🧪 Mock login result:', result);
-
-                if (result.success) {
-                  Alert.alert('Mock Login Success', result.message, [
-                    { text: 'OK', onPress: () => router.replace('/(tabs)') }
-                  ]);
-                } else {
-                  Alert.alert('Mock Login Failed', result.message);
-                }
-              } catch (error: any) {
-                console.error('🚨 Mock login test failed:', error);
-                Alert.alert('Mock Login Test Failed', error.message || 'Unknown error');
-              }
-            }}
-          >
-            <Text style={styles.buttonText}>Test Mock Login</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, isSubmitting && styles.disabledButton]}
             onPress={handleRegister}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Register</Text>}
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Register</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -295,7 +267,8 @@ export default function RegisterScreen() {
 
 function Field({
   label, value, onChange, error, secure = false,
-  keyboardType = 'default', autoCapitalize = 'none', multiline = false, numberOfLines = 1
+  keyboardType = 'default', autoCapitalize = 'none',
+  multiline = false, numberOfLines = 1, placeholder = '', editable = true
 }: any) {
   return (
     <View style={styles.field}>
@@ -309,6 +282,9 @@ function Field({
         autoCapitalize={autoCapitalize}
         multiline={multiline}
         numberOfLines={numberOfLines}
+        placeholder={placeholder}
+        placeholderTextColor="#999"
+        editable={editable}
       />
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
@@ -323,8 +299,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '600', marginBottom: 6, color: '#444' },
   input: { backgroundColor: '#fff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', fontSize: 16 },
   errorInput: { borderColor: 'red' },
-  error: { color: 'red', marginTop: 4 },
-  button: { backgroundColor: '#0066cc', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  error: { color: 'red', marginTop: 4, fontSize: 14 },
+  button: { backgroundColor: '#0066cc', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
+  disabledButton: { backgroundColor: '#ccc' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' }
 });
-
