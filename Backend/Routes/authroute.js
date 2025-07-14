@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, logout } from '../controllers/authController.js';
+import { register, login, logout, sendOTP, verifyOTP, resendOTP } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { uploadUserFiles } from '../utils/multerConfig.js';
 
@@ -88,6 +88,38 @@ const loginValidation = [
         .notEmpty()
         .withMessage('Password is required')
 ];
+
+// OTP validation rules
+const otpValidation = [
+    body('phoneNumber')
+        .matches(/^[6-9]\d{9}$/)
+        .withMessage('Please provide a valid 10-digit phone number')
+];
+
+const verifyOtpValidation = [
+    body('phoneNumber')
+        .matches(/^[6-9]\d{9}$/)
+        .withMessage('Please provide a valid 10-digit phone number'),
+
+    body('otp')
+        .matches(/^\d{6}$/)
+        .withMessage('OTP must be 6 digits')
+];
+
+// @route   POST /api/auth/send-otp
+// @desc    Send OTP to phone number
+// @access  Public
+router.post('/send-otp', otpValidation, sendOTP);
+
+// @route   POST /api/auth/verify-otp
+// @desc    Verify OTP for phone number
+// @access  Public
+router.post('/verify-otp', verifyOtpValidation, verifyOTP);
+
+// @route   POST /api/auth/resend-otp
+// @desc    Resend OTP to phone number
+// @access  Public
+router.post('/resend-otp', otpValidation, resendOTP);
 
 // @route   POST /api/auth/register
 // @desc    Register a new user with file uploads

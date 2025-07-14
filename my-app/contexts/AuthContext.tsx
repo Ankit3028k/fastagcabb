@@ -1,5 +1,7 @@
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Infobip2FAService from '@/services/infobip2FAService';
+import InfobipSMSService from '@/services/infobipSMSService';
 
 interface User {
   _id: string;
@@ -44,7 +46,9 @@ interface AuthContextType {
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (data: RegistrationData) => Promise<{ success: boolean; message: string }>;
   sendOtpRequest: (phoneNumber: string) => Promise<{ success: boolean; message: string }>;
+  resendOtpRequest: (phoneNumber: string) => Promise<{ success: boolean; message: string }>;
   verifyOtpAndRegister: (phoneNumber: string, otp: string, userData: any) => Promise<{ success: boolean; message: string }>;
+  resetInfobipApplication: () => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -187,29 +191,170 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Mock OTP functions for now (you can implement real OTP service later)
+  // Debug function to reset Infobip application
+  const resetInfobipApplication = async () => {
+    try {
+      console.log('Resetting Infobip 2FA application...');
+      const result = await Infobip2FAService.resetApplication();
+
+      if (result.success) {
+        console.log('Infobip application reset successfully');
+        return {
+          success: true,
+          message: 'Infobip application reset successfully'
+        };
+      } else {
+        console.error('Failed to reset Infobip application:', result.message);
+        return {
+          success: false,
+          message: result.message || 'Failed to reset application'
+        };
+      }
+    } catch (error) {
+      console.error('Reset application error:', error);
+      return {
+        success: false,
+        message: 'Error resetting application'
+      };
+    }
+  };
+
+  // Infobip OTP functions with fallback
   const sendOtpRequest = async (phoneNumber: string) => {
     try {
-      // For now, just return success (you can integrate with SMS service later)
-      console.log('Sending OTP to:', phoneNumber);
-      return { success: true, message: 'OTP sent successfully' };
+      setIsLoading(true);
+      console.log('Sending OTP via Infobip to:', phoneNumber);
+
+      // Try 2FA service first
+      console.log('Attempting 2FA service...');
+      const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
+
+      if (result2FA.success) {
+        console.log('OTP sent successfully via Infobip 2FA');
+        return {
+          success: true,
+          message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+        };
+      } else {
+        console.log('2FA service failed, trying SMS service...');
+
+        // Fallback to SMS service
+        const resultSMS = await InfobipSMSService.sendOTP(phoneNumber);
+
+        if (resultSMS.success) {
+          console.log('OTP sent successfully via Infobip SMS');
+          return {
+            success: true,
+            message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+          };
+        } else {
+          console.error('Both services failed:', {
+            '2FA': result2FA.message,
+            'SMS': resultSMS.message
+          });
+
+          return {
+            success: false,
+            message: resultSMS.message || result2FA.message || 'Failed to send OTP. Please try again.'
+          };
+        }
+      }
     } catch (error) {
-      return { success: false, message: 'Failed to send OTP' };
+      console.error('OTP send error:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection and try again.'
+      };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const verifyOtpAndRegister = async (phoneNumber: string, otp: string, userData: any) => {
     try {
-      // For now, just verify with a dummy OTP (you can implement real verification later)
-      if (otp === '123456' || otp === '1234') {
-        // If OTP is correct, proceed with registration
-        const result = await register(userData);
-        return result;
+      setIsLoading(true);
+      console.log('Verifying OTP via Infobip for:', phoneNumber);
+
+      // Try 2FA service first
+      let verificationResult = await Infobip2FAService.verifyOTP(phoneNumber, otp);
+
+      // If 2FA fails, try SMS service
+      if (!verificationResult.success) {
+        console.log('2FA verification failed, trying SMS service...');
+        verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
+      }
+
+      if (verificationResult.success) {
+        console.log('OTP verified successfully, proceeding with registration');
+
+        // If OTP is verified, proceed with user registration
+        const registrationResult = await register(userData);
+
+        if (registrationResult.success) {
+          return {
+            success: true,
+            message: 'Registration completed successfully! Welcome to FASTAGCAB.'
+          };
+        } else {
+          return {
+            success: false,
+            message: registrationResult.message || 'Registration failed after OTP verification'
+          };
+        }
       } else {
-        return { success: false, message: 'Invalid OTP' };
+        console.error('OTP verification failed:', verificationResult.message);
+        return {
+          success: false,
+          message: verificationResult.message || 'Invalid OTP. Please try again.'
+        };
       }
     } catch (error) {
-      return { success: false, message: 'Verification failed' };
+      console.error('OTP verification error:', error);
+      return {
+        success: false,
+        message: 'Verification failed. Please try again.'
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resend OTP function
+  const resendOtpRequest = async (phoneNumber: string) => {
+    try {
+      setIsLoading(true);
+      console.log('Resending OTP via Infobip to:', phoneNumber);
+
+      // Try 2FA service first
+      let result = await Infobip2FAService.resendOTP(phoneNumber);
+
+      // If 2FA fails, try SMS service
+      if (!result.success) {
+        console.log('2FA resend failed, trying SMS service...');
+        result = await InfobipSMSService.resendOTP(phoneNumber);
+      }
+
+      if (result.success) {
+        console.log('OTP resent successfully via Infobip');
+        return {
+          success: true,
+          message: 'OTP resent successfully to your mobile number.'
+        };
+      } else {
+        console.error('Failed to resend OTP via Infobip:', result.message);
+        return {
+          success: false,
+          message: result.message || 'Failed to resend OTP. Please try again.'
+        };
+      }
+    } catch (error) {
+      console.error('OTP resend error:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection and try again.'
+      };
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -223,7 +368,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     sendOtpRequest,
+    resendOtpRequest,
     verifyOtpAndRegister,
+    resetInfobipApplication,
     logout,
     isAuthenticated: !!user,
   };

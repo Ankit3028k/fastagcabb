@@ -91,6 +91,9 @@ app.listen(PORT, () => {
     console.log(`🌐 Server URL: http://localhost:${PORT}`);
     console.log(`📋 Available endpoints:`);
     console.log(`  GET  /`);
+    console.log(`  POST /api/auth/send-otp`);
+    console.log(`  POST /api/auth/verify-otp`);
+    console.log(`  POST /api/auth/resend-otp`);
     console.log(`  POST /api/auth/login`);
     console.log(`  POST /api/auth/register`);
     console.log(`  POST /api/auth/logout`);

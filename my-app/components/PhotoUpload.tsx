@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface PhotoUploadProps {
@@ -32,12 +32,12 @@ export default function PhotoUpload({
 }: PhotoUploadProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const requestPermissions = async () => {
+  const requestMediaLibraryPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert(
         'Permission Required',
-        'Sorry, we need camera roll permissions to upload photos.',
+        'Sorry, we need media library permissions to upload photos.',
         [{ text: 'OK' }]
       );
       return false;
@@ -45,8 +45,17 @@ export default function PhotoUpload({
     return true;
   };
 
+  const requestCameraPermissions = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+      return false;
+    }
+    return true;
+  };
+
   const pickImage = async () => {
-    const hasPermission = await requestPermissions();
+    const hasPermission = await requestMediaLibraryPermissions();
     if (!hasPermission) return;
 
     Alert.alert(
@@ -70,25 +79,28 @@ export default function PhotoUpload({
   };
 
   const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is required to take photos.');
-      return;
-    }
+    const hasPermission = await requestCameraPermissions();
+    if (!hasPermission) return;
 
     setIsLoading(true);
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        onPhotoSelected(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        if (uri) {
+          onPhotoSelected(uri);
+        } else {
+          throw new Error('No valid image URI returned.');
+        }
       }
     } catch (error) {
+      console.error(error);
       Alert.alert('Error', 'Failed to take photo. Please try again.');
     } finally {
       setIsLoading(false);
@@ -99,16 +111,22 @@ export default function PhotoUpload({
     setIsLoading(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        onPhotoSelected(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        if (uri) {
+          onPhotoSelected(uri);
+        } else {
+          throw new Error('No valid image URI returned.');
+        }
       }
     } catch (error) {
+      console.error(error);
       Alert.alert('Error', 'Failed to select photo. Please try again.');
     } finally {
       setIsLoading(false);
@@ -261,54 +279,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
-// import React from 'react';
-// import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-// import { Ionicons } from '@expo/vector-icons';
-
-// export default function PhotoUpload({
-//   title,
-//   value,
-//   onPhotoSelected,
-//   error,
-// }: {
-//   title: string;
-//   value: string;
-//   onPhotoSelected: (uri: string) => void;
-//   error?: string;
-// }) {
-//   const pickImage = async () => {
-//     // your image picker logic...
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.title}>{title} (Optional)</Text>
-//       <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-//         {value ? (
-//           <Image source={{ uri: value }} style={styles.image} />
-//         ) : (
-//           <Ionicons name="cloud-upload-outline" size={40} color="#888" />
-//         )}
-//       </TouchableOpacity>
-//       {error && <Text style={styles.error}>{error}</Text>}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { marginBottom: 20 },
-//   title: { fontWeight: '600', marginBottom: 8 },
-//   uploadBox: {
-//     width: '100%',
-//     height: 120,
-//     borderWidth: 1,
-//     borderColor: '#bbb',
-//     borderRadius: 10,
-//     backgroundColor: '#f5f5f5',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-//   image: { width: '100%', height: '100%', borderRadius: 10 },
-//   error: { color: 'red', marginTop: 4 },
-// });

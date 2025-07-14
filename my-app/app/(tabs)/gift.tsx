@@ -49,6 +49,7 @@ export default function TabTwoScreen() {
       </ThemedView>
 
       {/* Progress Bar for Available Points */}
+
       <View style={styles.progressBarContainer}>
         <View
           style={[styles.progressBar, { width: `${progressPercentage}%` }]}
@@ -62,7 +63,7 @@ export default function TabTwoScreen() {
         /> */}
         <FontAwesome size={30} name="gift" color="#f26621" style={styles.giftIcon}/>
       </View>
-
+      
       {/* Available Points Section */}
       <ThemedView style={styles.pointsContainer}>
         <ThemedText style={styles.pointText} type="defaultSemiBold">

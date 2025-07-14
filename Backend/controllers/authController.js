@@ -1,6 +1,95 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
 import User from '../Models/user.js';
+
+// Infobip Configuration
+const INFOBIP_CONFIG = {
+    baseURL: 'https://ypqwxp.api.infobip.com',
+    apiKey: '5830f3c890eba242e7bf4e33e4dec772-f871e7d3-5cd4-48bc-ba6d-d590ff3f541e'
+};
+
+// In-memory OTP storage (in production, use Redis or database)
+const otpStorage = new Map();
+
+// OTP Helper Functions
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const storeOTP = (phoneNumber, otp) => {
+    const expiresAt = Date.now() + (15 * 60 * 1000); // 15 minutes
+    otpStorage.set(phoneNumber, { otp, expiresAt });
+
+    // Auto cleanup after expiry
+    setTimeout(() => {
+        otpStorage.delete(phoneNumber);
+    }, 15 * 60 * 1000);
+};
+
+const verifyStoredOTP = (phoneNumber, enteredOTP) => {
+    const stored = otpStorage.get(phoneNumber);
+
+    if (!stored) {
+        return { success: false, message: 'OTP not found. Please request a new OTP.' };
+    }
+
+    if (Date.now() > stored.expiresAt) {
+        otpStorage.delete(phoneNumber);
+        return { success: false, message: 'OTP has expired. Please request a new OTP.' };
+    }
+
+    if (stored.otp === enteredOTP) {
+        otpStorage.delete(phoneNumber);
+        return { success: true, message: 'OTP verified successfully' };
+    }
+
+    return { success: false, message: 'Invalid OTP. Please try again.' };
+};
+
+const sendSMSViaInfobip = async (phoneNumber, message) => {
+    try {
+        const formattedPhone = phoneNumber.startsWith('+91') ? phoneNumber : `+91${phoneNumber}`;
+
+        const smsData = {
+            messages: [
+                {
+                    from: "FASTAGCAB",
+                    destinations: [{ to: formattedPhone }],
+                    text: message
+                }
+            ]
+        };
+
+        const response = await fetch(`${INFOBIP_CONFIG.baseURL}/sms/2/text/advanced`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `App ${INFOBIP_CONFIG.apiKey}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(smsData)
+        });
+
+        const responseData = await response.json();
+
+        if (response.ok && responseData.messages && responseData.messages[0].status.groupId === 1) {
+            return {
+                success: true,
+                messageId: responseData.messages[0].messageId,
+                to: formattedPhone
+            };
+        } else {
+            const errorMessage = responseData.messages?.[0]?.status?.description ||
+                               responseData.requestError?.serviceException?.text ||
+                               'Failed to send SMS';
+            return { success: false, message: errorMessage };
+        }
+    } catch (error) {
+        console.error('SMS send error:', error);
+        return { success: false, message: 'Network error while sending SMS' };
+    }
+};
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -290,6 +379,162 @@ export const logout = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Server error during logout'
+        });
+    }
+};
+
+// @desc    Send OTP to phone number
+// @route   POST /api/auth/send-otp
+// @access  Public
+export const sendOTP = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { phoneNumber } = req.body;
+
+        // Generate OTP
+        const otp = generateOTP();
+
+        // Store OTP
+        storeOTP(phoneNumber, otp);
+
+        // Prepare SMS message
+        const message = `Your FASTAGCAB verification code is ${otp}. Valid for 15 minutes. Do not share this code with anyone.`;
+
+        // Send SMS
+        const smsResult = await sendSMSViaInfobip(phoneNumber, message);
+
+        if (smsResult.success) {
+            console.log(`OTP sent to ${phoneNumber}: ${otp}`); // For development only
+
+            res.status(200).json({
+                success: true,
+                message: 'OTP sent successfully to your mobile number',
+                data: {
+                    messageId: smsResult.messageId,
+                    to: smsResult.to
+                }
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: smsResult.message || 'Failed to send OTP'
+            });
+        }
+
+    } catch (error) {
+        console.error('Send OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while sending OTP'
+        });
+    }
+};
+
+// @desc    Verify OTP for phone number
+// @route   POST /api/auth/verify-otp
+// @access  Public
+export const verifyOTP = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { phoneNumber, otp } = req.body;
+
+        // Verify OTP
+        const verificationResult = verifyStoredOTP(phoneNumber, otp);
+
+        if (verificationResult.success) {
+            res.status(200).json({
+                success: true,
+                message: verificationResult.message
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                message: verificationResult.message
+            });
+        }
+
+    } catch (error) {
+        console.error('Verify OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while verifying OTP'
+        });
+    }
+};
+
+// @desc    Resend OTP to phone number
+// @route   POST /api/auth/resend-otp
+// @access  Public
+export const resendOTP = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { phoneNumber } = req.body;
+
+        // Clear existing OTP
+        otpStorage.delete(phoneNumber);
+
+        // Generate new OTP
+        const otp = generateOTP();
+
+        // Store new OTP
+        storeOTP(phoneNumber, otp);
+
+        // Prepare SMS message
+        const message = `Your FASTAGCAB verification code is ${otp}. Valid for 15 minutes. Do not share this code with anyone.`;
+
+        // Send SMS
+        const smsResult = await sendSMSViaInfobip(phoneNumber, message);
+
+        if (smsResult.success) {
+            console.log(`OTP resent to ${phoneNumber}: ${otp}`); // For development only
+
+            res.status(200).json({
+                success: true,
+                message: 'OTP resent successfully to your mobile number',
+                data: {
+                    messageId: smsResult.messageId,
+                    to: smsResult.to
+                }
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: smsResult.message || 'Failed to resend OTP'
+            });
+        }
+
+    } catch (error) {
+        console.error('Resend OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while resending OTP'
         });
     }
 };
