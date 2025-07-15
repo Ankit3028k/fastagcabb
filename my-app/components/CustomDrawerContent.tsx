@@ -9,6 +9,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,12 +63,27 @@ export default function CustomDrawerContent() {
 
   const handleMenuItemPress = (route: string) => {
     closeDrawer();
-    router.push(route);
+    // Add a small delay to ensure drawer closes before navigation
+    setTimeout(() => {
+      try {
+        router.push(route as any); // Type assertion to fix TypeScript error
+      } catch (error) {
+        console.error('Navigation error:', error);
+      }
+    }, 100);
   };
 
   const handleLogout = () => {
     closeDrawer();
-    logout();
+    // Add a small delay to ensure drawer closes before logout
+    setTimeout(() => {
+      try {
+        logout(); // logout is synchronous in the current implementation
+        router.replace('/login');
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }, 100);
   };
 
   if (!isDrawerOpen) return null;
@@ -181,6 +197,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    // Add safe area padding for better rendering
+    paddingTop: Platform.OS === 'ios' ? 50 : 25,
   },
   header: {
     paddingTop: 20,

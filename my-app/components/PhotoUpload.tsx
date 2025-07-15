@@ -19,6 +19,7 @@ interface PhotoUploadProps {
   error?: string;
   required?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  cameraOnly?: boolean; // New prop to restrict to camera only
 }
 
 export default function PhotoUpload({
@@ -28,7 +29,8 @@ export default function PhotoUpload({
   onPhotoSelected,
   error,
   required = false,
-  icon = 'camera-outline'
+  icon = 'camera-outline',
+  cameraOnly = false
 }: PhotoUploadProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -55,6 +57,12 @@ export default function PhotoUpload({
   };
 
   const pickImage = async () => {
+    // If cameraOnly is true, directly open camera
+    if (cameraOnly) {
+      openCamera();
+      return;
+    }
+
     const hasPermission = await requestMediaLibraryPermissions();
     if (!hasPermission) return;
 

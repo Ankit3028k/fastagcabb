@@ -7,6 +7,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +15,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 
-const { width, height } = Dimensions.get('window');
+// Safe dimension access that works in React Native
+const screenDimensions = Dimensions.get('screen');
+const { width, height } = screenDimensions;
 
 interface QRScannerProps {
   visible: boolean;
@@ -28,25 +31,46 @@ export const QRScanner: React.FC<QRScannerProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
   const { processQRCode } = useAuth();
 
+  // Add error boundary for potential crashes
+  const [hasError, setHasError] = useState(false);
+
   useEffect(() => {
     const getCameraPermissions = async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
+      try {
+        // Reset error state when requesting permissions
+        setHasError(false);
+
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setHasPermission(status === 'granted');
+      } catch (error) {
+        console.error('Error requesting camera permissions:', error);
+        setHasError(true);
+        setHasPermission(false);
+      }
     };
 
-    if (visible) {
+    if (visible && Platform.OS !== 'web') {
       getCameraPermissions();
+    } else if (Platform.OS === 'web') {
+      // Web platform not supported for QR scanning
+      setHasPermission(false);
+      setHasError(true);
     }
   }, [visible]);
 
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
     if (scanned) return;
-    
+
     setScanned(true);
-    
+
     try {
+      // Add safety check for processQRCode function
+      if (typeof processQRCode !== 'function') {
+        throw new Error('QR code processing function not available');
+      }
+
       const result = await processQRCode(data);
-      
+
       Alert.alert(
         result.success ? t('success') : t('error'),
         result.message,
@@ -60,10 +84,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ visible, onClose }) => {
           },
         ]
       );
-    } catch (error) {
+    } catch (error: any) {
+      console.error('QR Code processing error:', error);
       Alert.alert(
         t('error'),
-        'Failed to process QR code',
+        error?.message || 'Failed to process QR code',
         [
           {
             text: 'OK',
@@ -81,6 +106,32 @@ export const QRScanner: React.FC<QRScannerProps> = ({ visible, onClose }) => {
     setScanned(false);
   };
 
+  // Handle error state
+  if (hasError) {
+    return (
+      <Modal visible={visible} animationType="slide">
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <Ionicons name="warning-outline" size={48} color={colors.warning} />
+          <Text style={[styles.message, { color: colors.text }]}>
+            QR Scanner Error
+          </Text>
+          <Text style={[styles.submessage, { color: colors.textSecondary }]}>
+            {Platform.OS === 'web'
+              ? 'QR scanning is not supported on web platform'
+              : 'Camera access failed. Please check permissions and try again.'
+            }
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+          >
+            <Text style={styles.buttonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
+
   if (hasPermission === null) {
     return (
       <Modal visible={visible} animationType="slide">
@@ -97,8 +148,12 @@ export const QRScanner: React.FC<QRScannerProps> = ({ visible, onClose }) => {
     return (
       <Modal visible={visible} animationType="slide">
         <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <Ionicons name="camera-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.message, { color: colors.text }]}>
-            Camera permission is required to scan QR codes
+            Camera Permission Required
+          </Text>
+          <Text style={[styles.submessage, { color: colors.textSecondary }]}>
+            Camera permission is required to scan QR codes. Please enable camera access in your device settings.
           </Text>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
@@ -254,8 +309,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   message: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  submessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+    lineHeight: 20,
   },
 });

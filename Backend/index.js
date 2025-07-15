@@ -38,10 +38,17 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+// Enhanced CORS configuration to ensure mobile app connectivity
 app.use(cors({
     origin: '*',  // Allow all origins
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+    maxAge: 86400 // Cache preflight requests for 24 hours
 }));
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors());
 
 // Serve static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -65,10 +72,34 @@ app.get("/", (req, res) => {
                 login: 'POST /api/auth/login',
                 register: 'POST /api/auth/register',
                 logout: 'POST /api/auth/logout',
-                test: 'GET /api/auth/test'
+                test: 'GET /api/auth/test',
+                sendOtp: 'POST /api/auth/send-otp',
+                verifyOtp: 'POST /api/auth/verify-otp'
             },
             users: 'GET /api/users',
             data: 'GET /api/data'
+        }
+    });
+});
+
+// Network connectivity test endpoint for mobile app debugging
+app.get("/api/test/connectivity", (req, res) => {
+    const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent') || 'Unknown';
+
+    res.status(200).json({
+        success: true,
+        message: "Network connectivity test successful!",
+        timestamp: new Date().toISOString(),
+        client: {
+            ip: clientIP,
+            userAgent: userAgent,
+            headers: req.headers
+        },
+        server: {
+            port: PORT,
+            environment: process.env.NODE_ENV || 'development',
+            cors: 'enabled'
         }
     });
 });
@@ -85,10 +116,11 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 Server URL: http://localhost:${PORT}`);
+    console.log(`📱 Mobile URL: http://192.168.79.132:${PORT}`);
     console.log(`📋 Available endpoints:`);
     console.log(`  GET  /`);
     console.log(`  POST /api/auth/send-otp`);
