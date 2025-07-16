@@ -123,7 +123,7 @@ class MockRegistrationService {
     }
   }
   
-  // Get stored users
+  // Get stored users 
   private async getStoredUsers(): Promise<any[]> {
     try {
       const stored = await AsyncStorage.getItem('mock_users');

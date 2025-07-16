@@ -60,6 +60,7 @@ interface AuthContextType {
   addPoints?: (points: number) => Promise<{ success: boolean; message: string }>;
   processQRCode?: (data: string) => Promise<{ success: boolean; message: string }>;
   processRecharge?: (amount: number) => Promise<{ success: boolean; message: string }>;
+  updateUserPoints?: (monthlyPoints: number, yearlyPoints?: number) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -150,6 +151,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Response status:', res.status);
       console.log('Response headers:', res.headers);
 
+      // Check content type to avoid JSON parsing errors
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('🚨 Server returned non-JSON response:', contentType);
+        const text = await res.text();
+        console.error('🚨 Response text:', text.substring(0, 200) + '...');
+        return { success: false, message: 'Server returned invalid response format' };
+      }
+
       const data = await res.json();
       console.log('Response data:', data);
 
@@ -177,7 +187,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       // Check if it's a network error and use mock service as fallback
-      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+      if (error.message.includes('Network request failed') || 
+          error.message.includes('fetch') || 
+          error.message.includes('JSON Parse error')) {
         console.log('🧪 Backend login failed, using mock login service...');
 
         try {
@@ -654,6 +666,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   };
 
+  const updateUserPoints = async (monthlyPoints: number, yearlyPoints?: number) => {
+    try {
+      // Get the stored token
+      const storedToken = await AsyncStorage.getItem('authToken');
+
+      if (!storedToken || !user) {
+        return {
+          success: false,
+          message: 'Authentication required. Please login again.'
+        };
+      }
+
+      const updateData: any = { monthlyPoints };
+      if (yearlyPoints !== undefined) {
+        updateData.yearlyPoints = yearlyPoints;
+      }
+
+      const response = await fetch(`${backendUrl}/api/users/${user._id}/points`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update user points in context
+        setUser(prev => prev ? {
+          ...prev,
+          monthlyPoints: result.data.monthlyPoints,
+          yearlyPoints: result.data.yearlyPoints
+        } : null);
+
+        // Update stored user data
+        if (user) {
+          const updatedUser = {
+            ...user,
+            monthlyPoints: result.data.monthlyPoints,
+            yearlyPoints: result.data.yearlyPoints
+          };
+          await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Update user points error:', error);
+      return {
+        success: false,
+        message: 'Failed to update user points'
+      };
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -668,6 +737,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     addPoints,
     processQRCode,
     processRecharge,
+    updateUserPoints,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
