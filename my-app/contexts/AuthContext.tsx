@@ -21,6 +21,8 @@ interface User {
   status?: 'pending' | 'approved' | 'rejected';
   isVerified?: boolean;
   dealerCode?: string;
+  monthlyPoints?: number;
+  yearlyPoints?: number;
 }
 
 interface RegistrationData {

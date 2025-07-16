@@ -82,7 +82,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌐 Server accessible at: http://localhost:${PORT}`);
     console.log(`🌐 Server accessible at: http://127.0.0.1:${PORT}`);
-  
-    // console.log(`📱 React Native app should use: http://192.168.1.25:${PORT}`);
+    console.log(`📱 React Native app should use: http://192.168.144.132:${PORT}`);
+    console.log(`✅ Server is binding to all interfaces (0.0.0.0) for React Native access`);
     dbConnect();
 });
