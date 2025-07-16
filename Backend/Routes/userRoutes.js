@@ -4,10 +4,12 @@ import {
     getAllUsers,
     getUserById,
     updateUser,
-    deleteUser
+    deleteUser,
+    updateUserPoints,
+    processRecharge
 } from '../controllers/userController.js';
 import {
-    authenticateToken, 
+    authenticateToken,
     requireAdmin,
     requireOwnershipOrAdmin
 } from '../middleware/auth.js';
@@ -103,5 +105,22 @@ router.put('/:id', authenticateToken, requireOwnershipOrAdmin, updateUserValidat
 // @desc    Delete user
 // @access  Private (Own profile or Admin)
 router.delete('/:id', authenticateToken, requireOwnershipOrAdmin, deleteUser);
+
+// @route   PUT /api/users/:id/points
+// @desc    Update user points
+// @access  Private (Own profile or Admin)
+router.put('/:id/points', authenticateToken, requireOwnershipOrAdmin, [
+    body('monthlyPoints').optional().isNumeric().withMessage('Monthly points must be a number'),
+    body('yearlyPoints').optional().isNumeric().withMessage('Yearly points must be a number')
+], updateUserPoints);
+
+// @route   POST /api/users/recharge
+// @desc    Process recharge request
+// @access  Private
+router.post('/recharge', authenticateToken, [
+    body('mobileNumber').notEmpty().isLength({ min: 10, max: 10 }).withMessage('Mobile number must be 10 digits'),
+    body('operator').notEmpty().withMessage('Operator is required'),
+    body('pointsToDeduct').isNumeric().withMessage('Points to deduct must be a number')
+], processRecharge);
 
 export default router;

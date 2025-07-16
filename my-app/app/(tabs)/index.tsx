@@ -84,26 +84,26 @@ export default function HomeScreen() {
   };
 
   const handleRecharge = () => {
-    Alert.prompt(
-      'Recharge',
-      'Enter recharge amount (₹)',
-      async (amount) => {
-        if (amount && !isNaN(Number(amount))) {
-          try {
-            const result = await processRecharge(Number(amount));
-            Alert.alert(
-              result.success ? 'Success' : 'Error',
-              result.message
-            );
-          } catch (error) {
-            Alert.alert('Error', 'Failed to process recharge');
-          }
-        } else {
-          Alert.alert('Error', 'Please enter a valid amount');
-        }
+    console.log('🔄 Recharge button clicked - navigating to recharge page');
+    Alert.alert('Debug', 'Recharge button clicked!', [
+      {
+        text: 'Cancel',
+        style: 'cancel'
       },
-      'numeric'
-    );
+      {
+        text: 'Navigate',
+        onPress: () => {
+          try {
+            // Use the correct path for the recharge page
+            router.push('/recharge-page' as any);
+            console.log('✅ Navigation to recharge page initiated');
+          } catch (error) {
+            console.error('❌ Navigation error:', error);
+            Alert.alert('Error', 'Failed to navigate to recharge page. Please try again.');
+          }
+        }
+      }
+    ]);
   };
 
   const handleSchemes = (scheme: string) => {
@@ -349,21 +349,29 @@ export default function HomeScreen() {
               <Text style={[styles.qrButtonText, { color: colors.primary }]}>
                 {t('qrScanner')}
               </Text>
-              <Text style={[styles.qrButtonSubtext, { color: colors.textSecondary }]}>
+              <Text style={[styles.qrButtonSubtext, { color: '#666' }]}>
                 {t('scanQR')}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.rechargeButton, { borderColor: colors.secondary, backgroundColor: colors.secondary + '10' }]}
-              onPress={handleRecharge}
+              style={[styles.rechargeButton, {
+                borderColor: colors.secondary,
+                backgroundColor: colors.secondary + '10',
+                zIndex: 999 
+              }]}
+              onPress={() => {
+                console.log('🔄 RECHARGE BUTTON PRESSED!');
+                handleRecharge();
+              }}
+              activeOpacity={0.7}
             >
               <Ionicons name="card" size={40} color={colors.secondary} />
               <Text style={[styles.rechargeButtonText, { color: colors.secondary }]}>
-                {t('recharge')}
+                Recharge
               </Text>
-              <Text style={[styles.rechargeButtonSubtext, { color: colors.textSecondary }]}>
-                {t('enterAmount')}
+              <Text style={[styles.rechargeButtonSubtext, { color: '#666' }]}>
+                Enter Amount
               </Text>
             </TouchableOpacity>
           </View>
@@ -372,7 +380,11 @@ export default function HomeScreen() {
               style={[styles.qrButton, { borderColor: colors.primary, backgroundColor: colors.primary + '10' }]}
               onPress={() => handleSchemes('FASTAGCAB')}
             >
-              <Ionicons name="car-sport" size={40} color={colors.primary} />
+              <Image
+                source={require('../../assets/images/fastagcab.png')}
+                style={styles.schemeImage}
+              />
+              {/* <Ionicons name="car-sport" size={40} color={colors.primary} /> */}
               <Text style={[styles.qrButtonText, { color: colors.primary }]}>
                 {t('Schemes')}
               </Text>
@@ -385,7 +397,11 @@ export default function HomeScreen() {
               style={[styles.rechargeButton, { borderColor: colors.secondary, backgroundColor: colors.secondary + '10' }]}
               onPress={() => handleSchemes('DDH')}
             >
-              <Ionicons name="home" size={40} color={colors.secondary} />
+              <Image
+                source={require('../../assets/images/dth.jpg')}
+                style={styles.schemeImage}
+              />
+              {/* <Ionicons name="home" size={40} color={colors.secondary} /> */}
               <Text style={[styles.rechargeButtonText, { color: colors.secondary }]}>
                 {t('Schemes')}
               </Text>
@@ -1041,5 +1057,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  schemeImage: {
+    width: 80,
+    height: 50,
+    // marginBottom: 8,
   },
 });

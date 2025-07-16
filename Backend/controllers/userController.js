@@ -238,3 +238,152 @@ export const deleteUser = async (req, res) => {
         });
     }
 };
+
+// @desc    Update user points
+// @route   PUT /api/users/:id/points
+// @access  Private (Own profile or Admin)
+export const updateUserPoints = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { id } = req.params;
+        const { monthlyPoints, yearlyPoints } = req.body;
+
+        // Check if user exists
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Prepare update data
+        const updateData = {};
+        if (monthlyPoints !== undefined) updateData.monthlyPoints = monthlyPoints;
+        if (yearlyPoints !== undefined) updateData.yearlyPoints = yearlyPoints;
+
+        // Update user points
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            updateData,
+            {
+                new: true,
+                runValidators: true
+            }
+        ).select('-password');
+
+        res.status(200).json({
+            success: true,
+            message: 'User points updated successfully',
+            data: {
+                user: updatedUser,
+                monthlyPoints: updatedUser.monthlyPoints,
+                yearlyPoints: updatedUser.yearlyPoints
+            }
+        });
+
+    } catch (error) {
+        console.error('Update user points error:', error);
+
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format'
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Server error while updating user points'
+        });
+    }
+};
+
+// @desc    Process recharge request
+// @route   POST /api/users/recharge
+// @access  Private
+export const processRecharge = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const userId = req.user._id;
+        const { mobileNumber, operator, pointsToDeduct } = req.body;
+
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check if user has sufficient points
+        if (user.monthlyPoints < pointsToDeduct) {
+            return res.status(400).json({
+                success: false,
+                message: `Insufficient points. You have ${user.monthlyPoints} points but need ${pointsToDeduct} points.`
+            });
+        }
+
+        // Deduct points from user
+        user.monthlyPoints -= pointsToDeduct;
+        await user.save();
+
+        // Here you would typically integrate with a real recharge API
+        // For now, we'll just simulate the recharge process
+
+        // Create a recharge record (you might want to create a Recharge model for this)
+        const rechargeData = {
+            userId: userId,
+            mobileNumber: mobileNumber,
+            operator: operator,
+            pointsDeducted: pointsToDeduct,
+            status: 'pending',
+            requestedAt: new Date()
+        };
+
+        // Log the recharge request
+        console.log('Recharge request processed:', rechargeData);
+
+        res.status(200).json({
+            success: true,
+            message: `Recharge request submitted successfully! ${pointsToDeduct} points deducted.`,
+            data: {
+                recharge: rechargeData,
+                remainingPoints: user.monthlyPoints,
+                user: {
+                    _id: user._id,
+                    fullName: user.fullName,
+                    monthlyPoints: user.monthlyPoints,
+                    yearlyPoints: user.yearlyPoints
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Process recharge error:', error);
+
+        res.status(500).json({
+            success: false,
+            message: 'Server error while processing recharge'
+        });
+    }
+};
