@@ -463,43 +463,70 @@ export const resendOTP = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
     }
 
     const { phoneNumber } = req.body;
     const sanitizedPhone = sanitize(phoneNumber);
 
     // Rate limiting
-    const rateLimitKey = `otp:rate:${sanitizedPhone}`;
-    const attempts = await redis.get(rateLimitKey);
-    if (attempts && parseInt(attempts) >= 5) {
-      return res.status(429).json({ success: false, message: 'Too many OTP requests. Try again later.' });
+    if (redis) {
+      const rateLimitKey = `otp:rate:${sanitizedPhone}`;
+      try {
+        const attempts = await redis.get(rateLimitKey);
+        if (attempts && parseInt(attempts) >= 5) {
+          return res.status(429).json({
+            success: false,
+            message: 'Too many OTP requests. Try again later.'
+          });
+        }
+      } catch (rateErr) {
+        console.warn('Redis rate limit check failed:', rateErr.message);
+      }
     }
 
     const otp = generateOTP();
     await storeOTP(sanitizedPhone, otp);
+
     const message = `Your FASTAGCAB verification code is ${otp}. Valid for 15 minutes. Do not share this code.`;
 
-    // Send OTP via Infobip or other service
-    // For now, just store the OTP and return success
-    console.log('📱 Generated OTP for testing (resend):', otp);
+    // OPTIONAL: Send OTP via SMS using Infobip
+    // const smsResult = await sendSMSViaInfobip(sanitizedPhone, message);
+    // if (!smsResult.success) {
+    //   return res.status(500).json({ success: false, message: smsResult.message });
+    // }
 
-    await redis.incr(rateLimitKey);
-    await redis.expire(rateLimitKey, 24 * 60 * 60);
-    res.status(200).json({
+    // Update rate limit counter
+    if (redis) {
+      try {
+        const rateLimitKey = `otp:rate:${sanitizedPhone}`;
+        await redis.incr(rateLimitKey);
+        await redis.expire(rateLimitKey, 24 * 60 * 60); // 24 hours
+      } catch (rateUpdateErr) {
+        console.warn('Redis rate limit update failed:', rateUpdateErr.message);
+      }
+    }
+
+    console.log('📱 OTP resent:', otp);
+
+    return res.status(200).json({
       success: true,
       message: 'OTP resent successfully',
       data: {
         to: sanitizedPhone,
-        // Include test OTP in development mode only
         ...(process.env.NODE_ENV !== 'production' && { testOtp: otp })
       }
-      });
-    } else {
-      res.status(500).json({ success: false, message: smsResult.message });
-    }
+    });
   } catch (error) {
-    console.error('Resend OTP error:', error);
-    res.status(500).json({ success: false, message: 'Server error while resending OTP' });
+    console.error('❌ Resend OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while resending OTP',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
   }
 };

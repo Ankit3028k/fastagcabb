@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,9 @@ export default function VerifyOtpScreen() {
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const { verifyOtpAndRegister, resendOtpRequest } = useAuth();
+
+  // Create refs for each OTP input
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   // Validate parsed form data
   useEffect(() => {
@@ -90,8 +93,8 @@ export default function VerifyOtpScreen() {
     newOtp[index] = value;
     setOtp(newOtp);
     if (value && index < 5) {
-      // Auto-focus next input
-      (document.getElementById(`otp-${index + 1}`) as any)?.focus();
+      // Auto-focus next input using ref
+      otpRefs.current[index + 1]?.focus();
     }
   };
 
@@ -107,6 +110,7 @@ export default function VerifyOtpScreen() {
           {otp.map((digit, index) => (
             <TextInput
               key={index}
+              ref={(ref) => (otpRefs.current[index] = ref)}
               style={styles.otpInput}
               keyboardType="numeric"
               maxLength={1}
@@ -114,7 +118,6 @@ export default function VerifyOtpScreen() {
               onChangeText={value => handleOtpChange(index, value)}
               textAlign="center"
               autoFocus={index === 0}
-              id={`otp-${index}`}
             />
           ))}
         </View>

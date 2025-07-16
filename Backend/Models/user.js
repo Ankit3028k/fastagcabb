@@ -110,7 +110,19 @@ const userSchema = new mongoose.Schema({
     isVerified: {
         type: Boolean,
         default: false
-    }
+    },
+    monthlyPoints: {
+        type: Number,
+        default: 0
+    },
+    yearlyPoints: {
+        type: Number,
+        default: 0
+    },
+    scannedQRCodes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'QRCode'
+    }]
 }, {
     timestamps: true
 });

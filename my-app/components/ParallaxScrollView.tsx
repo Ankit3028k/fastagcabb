@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
-  useAnimatedRef,
+  useAnimatedRef, 
   useAnimatedStyle,
   useScrollViewOffset,
 } from 'react-native-reanimated';
