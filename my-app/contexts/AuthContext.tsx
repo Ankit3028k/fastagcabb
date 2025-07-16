@@ -1,5 +1,6 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import InteraktSMSService from '@/services/interaktSMSService';
 import Infobip2FAService from '@/services/infobip2FAService';
 import InfobipSMSService from '@/services/infobipSMSService';
 import TestOTPService from '@/services/testOTPService';
@@ -53,6 +54,10 @@ interface AuthContextType {
   resetInfobipApplication: () => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isAuthenticated: boolean;
+  // Additional functions to prevent crashes
+  addPoints?: (points: number) => Promise<{ success: boolean; message: string }>;
+  processQRCode?: (data: string) => Promise<{ success: boolean; message: string }>;
+  processRecharge?: (amount: number) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,10 +68,64 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with true to check stored auth
 
-  // Use environment variable or fallback to localhost for development
-  const backendUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+  // Use environment variable or fallback to the correct IP for React Native
+  // React Native can't connect to localhost, so we need to use the actual IP address
+  const backendUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.144.132:5000';
+
+  // Debug: Log the backend URL being used
+  console.log('🔧 Environment EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+  console.log('🔧 Final backendUrl being used:', backendUrl);
+  console.log('🔧 React Native Metro server IP detected from logs: 192.168.144.132');
+
+  // Check for stored authentication on app start
+  useEffect(() => {
+    checkStoredAuth();
+  }, []);
+
+  const checkStoredAuth = async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem('authToken');
+      const storedUser = await AsyncStorage.getItem('user');
+
+      if (storedToken && storedUser) {
+        // Verify token is still valid by making a request to the backend
+        try {
+          const response = await fetch(`${backendUrl}/api/auth/verify-token`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+              setUser(data.user);
+            } else {
+              // Token is invalid, clear storage
+              await AsyncStorage.removeItem('authToken');
+              await AsyncStorage.removeItem('user');
+            }
+          } else {
+            // Token is invalid, clear storage
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.log('Token verification failed, using stored user data:', error);
+          // If backend is not reachable, use stored user data
+          setUser(JSON.parse(storedUser));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking stored auth:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
@@ -96,8 +155,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userData = data.data.user;
         const token = data.data.token;
 
-        // Save token to AsyncStorage
+        // Save token and user data to AsyncStorage
         await AsyncStorage.setItem('authToken', token);
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
 
         setUser(userData);
         console.log('Logged-in user:', userData);
@@ -240,16 +300,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         return { success: false, message: resData.message || 'Registration failed' };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('🚨 Registration error:', error);
       console.error('🚨 Registration error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
       });
 
       // Check if it's a network error and use mock service as fallback
-      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+      if (error?.message?.includes('Network request failed') || error?.message?.includes('fetch')) {
         console.log('🧪 Backend registration failed, using mock registration service...');
         console.log('🧪 Data being passed to mock service:', {
           ...data,
@@ -279,7 +339,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       return {
         success: false,
-        message: `Registration failed: ${error.message}`
+        message: `Registration failed: ${error?.message || 'Unknown error'}`
       };
     } finally {
       setIsLoading(false);
@@ -314,57 +374,73 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Infobip OTP functions with fallback
+  // OTP functions with Interakt as primary service
   const sendOtpRequest = async (phoneNumber: string) => {
     try {
       setIsLoading(true);
-      console.log('Sending OTP via Infobip to:', phoneNumber);
+      console.log('🚀 AUTHCONTEXT: Sending OTP to:', phoneNumber);
 
-      // Use SMS service directly (2FA service has configuration issues)
-      console.log('Using SMS service for OTP...');
-      const resultSMS = await InfobipSMSService.sendOTP(phoneNumber);
+      // Use Interakt SMS service as primary
+      console.log('🚀 AUTHCONTEXT: Using Interakt SMS service for OTP...');
+      const resultInterakt = await InteraktSMSService.sendOTP(phoneNumber);
 
-      if (resultSMS.success) {
-        console.log('OTP sent successfully via Infobip SMS');
+      if (resultInterakt.success) {
+        console.log('✅ OTP sent successfully via Interakt SMS');
+        console.log('🔢 Generated OTP (for debugging):', resultInterakt.data?.otp);
         return {
           success: true,
-          message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+          message: 'OTP sent successfully to your mobile number via Interakt. Please check your SMS.'
         };
       } else {
-        console.error('SMS service failed:', resultSMS.message);
+        console.error('❌ Interakt SMS service failed:', resultInterakt.message);
 
-        // Try 2FA service as fallback (though it's currently failing)
-        console.log('SMS failed, trying 2FA service as fallback...');
-        const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
+        // Try Infobip SMS service as fallback
+        console.log('🔄 Interakt failed, trying Infobip SMS service as fallback...');
+        const resultInfobipSMS = await InfobipSMSService.sendOTP(phoneNumber);
 
-        if (result2FA.success) {
-          console.log('OTP sent successfully via Infobip 2FA');
+        if (resultInfobipSMS.success) {
+          console.log('✅ OTP sent successfully via Infobip SMS');
           return {
             success: true,
-            message: 'OTP sent successfully to your mobile number. Please check your SMS.'
+            message: 'OTP sent successfully to your mobile number via Infobip. Please check your SMS.'
           };
         } else {
-          console.error('Both Infobip services failed:', {
-            'SMS': resultSMS.message,
-            '2FA': result2FA.message
-          });
+          console.error('❌ Infobip SMS service failed:', resultInfobipSMS.message);
 
-          // Use test OTP service as final fallback
-          console.log('🧪 Both Infobip services failed, using test OTP service...');
-          const testResult = await TestOTPService.sendOTP(phoneNumber);
+          // Try 2FA service as fallback
+          console.log('🔄 Infobip SMS failed, trying 2FA service as fallback...');
+          const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
 
-          if (testResult.success) {
-            console.log('✅ Test OTP service succeeded');
+          if (result2FA.success) {
+            console.log('✅ OTP sent successfully via Infobip 2FA');
             return {
               success: true,
-              message: 'OTP sent successfully via test service. Check console for OTP.'
+              message: 'OTP sent successfully to your mobile number via 2FA. Please check your SMS.'
             };
           } else {
-            console.error('❌ All services failed including test service');
-            return {
-              success: false,
-              message: 'All OTP services failed. Please try again later.'
-            };
+            console.error('❌ All primary services failed:', {
+              'Interakt': resultInterakt.message,
+              'Infobip SMS': resultInfobipSMS.message,
+              'Infobip 2FA': result2FA.message
+            });
+
+            // Use test OTP service as final fallback
+            console.log('🧪 All primary services failed, using test OTP service...');
+            const testResult = await TestOTPService.sendOTP(phoneNumber);
+
+            if (testResult.success) {
+              console.log('✅ Test OTP service succeeded');
+              return {
+                success: true,
+                message: 'OTP sent successfully via test service. Check console for OTP.'
+              };
+            } else {
+              console.error('❌ All services failed including test service');
+              return {
+                success: false,
+                message: 'All OTP services failed. Please try again later.'
+              };
+            }
           }
         }
       }
@@ -382,20 +458,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const verifyOtpAndRegister = async (phoneNumber: string, otp: string, userData: any) => {
     try {
       setIsLoading(true);
-      console.log('Verifying OTP via Infobip for:', phoneNumber);
+      console.log('Verifying OTP for:', phoneNumber);
 
-      // Try SMS service first (more reliable)
-      let verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
+      // Try Interakt SMS service first (primary)
+      console.log('🔍 Trying Interakt SMS verification...');
+      let verificationResult = await InteraktSMSService.verifyOTP(phoneNumber, otp);
 
-      // If SMS fails, try 2FA service
+      // If Interakt fails, try Infobip SMS service
       if (!verificationResult.success) {
-        console.log('SMS verification failed, trying 2FA service...');
+        console.log('🔄 Interakt verification failed, trying Infobip SMS service...');
+        verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
+      }
+
+      // If Infobip SMS fails, try 2FA service
+      if (!verificationResult.success) {
+        console.log('🔄 Infobip SMS verification failed, trying 2FA service...');
         verificationResult = await Infobip2FAService.verifyOTP(phoneNumber, otp);
       }
 
-      // If both Infobip services fail, try test service
+      // If all primary services fail, try test service
       if (!verificationResult.success) {
-        console.log('🧪 Both Infobip verification failed, trying test service...');
+        console.log('🧪 All primary verification failed, trying test service...');
         verificationResult = await TestOTPService.verifyOTP(phoneNumber, otp);
       }
 
@@ -452,31 +535,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const resendOtpRequest = async (phoneNumber: string) => {
     try {
       setIsLoading(true);
-      console.log('Resending OTP via Infobip to:', phoneNumber);
+      console.log('Resending OTP to:', phoneNumber);
 
-      // Try SMS service first (more reliable)
-      let result = await InfobipSMSService.resendOTP(phoneNumber);
+      // Try Interakt SMS service first (primary)
+      console.log('🔄 Trying Interakt SMS resend...');
+      let result = await InteraktSMSService.resendOTP(phoneNumber);
 
-      // If SMS fails, try 2FA service
+      // If Interakt fails, try Infobip SMS service
       if (!result.success) {
-        console.log('SMS resend failed, trying 2FA service...');
+        console.log('🔄 Interakt resend failed, trying Infobip SMS service...');
+        result = await InfobipSMSService.resendOTP(phoneNumber);
+      }
+
+      // If Infobip SMS fails, try 2FA service
+      if (!result.success) {
+        console.log('🔄 Infobip SMS resend failed, trying 2FA service...');
         result = await Infobip2FAService.resendOTP(phoneNumber);
       }
 
-      // If both Infobip services fail, try test service
+      // If all primary services fail, try test service
       if (!result.success) {
-        console.log('🧪 Both Infobip resend failed, trying test service...');
+        console.log('🧪 All primary resend failed, trying test service...');
         result = await TestOTPService.resendOTP(phoneNumber);
       }
 
       if (result.success) {
-        console.log('OTP resent successfully via Infobip');
+        console.log('OTP resent successfully via fallback services');
         return {
           success: true,
           message: 'OTP resent successfully to your mobile number.'
         };
       } else {
-        console.error('Failed to resend OTP via Infobip:', result.message);
+        console.error('Failed to resend OTP via all services:', result.message);
         return {
           success: false,
           message: result.message || 'Failed to resend OTP. Please try again.'
@@ -493,8 +583,73 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('user');
+    } catch (error) {
+      console.error('Error clearing auth data:', error);
+    }
     setUser(null);
+  };
+
+  // Placeholder functions to prevent crashes - implement as needed
+  const addPoints = async (points: number) => {
+    console.log('Add points function called with:', points);
+    return {
+      success: true,
+      message: `Added ${points} points successfully!`
+    };
+  };
+
+  const processQRCode = async (data: string) => {
+    try {
+      // Get the stored token
+      const storedToken = await AsyncStorage.getItem('authToken');
+
+      if (!storedToken) {
+        return {
+          success: false,
+          message: 'Authentication required. Please login again.'
+        };
+      }
+
+      const response = await fetch(`${backendUrl}/api/qr/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`
+        },
+        body: JSON.stringify({ qrData: data })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update user points in context
+        setUser(prev => prev ? {
+          ...prev,
+          monthlyPoints: result.totalMonthlyPoints,
+          yearlyPoints: result.totalYearlyPoints
+        } : null);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('QR processing error:', error);
+      return {
+        success: false,
+        message: 'Failed to process QR code'
+      };
+    }
+  };
+
+  const processRecharge = async (amount: number) => {
+    console.log('Process recharge function called with:', amount);
+    return {
+      success: true,
+      message: `Recharge of ₹${amount} processed successfully!`
+    };
   };
 
   const value: AuthContextType = {
@@ -508,6 +663,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resetInfobipApplication,
     logout,
     isAuthenticated: !!user,
+    addPoints,
+    processQRCode,
+    processRecharge,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

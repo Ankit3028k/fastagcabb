@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -11,11 +11,17 @@ import FontAwesome from "react-native-vector-icons/FontAwesome";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+} from "react-native-reanimated";
 
 // Screen Width
 const screenWidth = Dimensions.get("window").width;
 
-// Sample Data
+// Sample Data (unchanged)
 const itemsData = [
   {
     id: "1",
@@ -45,9 +51,31 @@ export default function TabTwoScreen() {
   const progressPercentage = (availablePoints / totalPoints) * 100;
   const giftPosition = (screenWidth - 80) * (progressPercentage / 100); // Adjust for padding
 
+  // Animation setup
+  const progressAnimation = useSharedValue(0);
+  const giftScale = useSharedValue(1);
+
+  useEffect(() => {
+    // Animate progress bar fill
+    progressAnimation.value = withTiming(progressPercentage, { duration: 1000 });
+    // Pulse animation for gift icon
+    giftScale.value = withSpring(1.2, { damping: 2, stiffness: 80 }, () => {
+      giftScale.value = withTiming(1, { duration: 500 });
+    });
+  }, [progressPercentage]);
+
+  const animatedProgressStyle = useAnimatedStyle(() => ({
+    width: `${progressAnimation.value}%`,
+  }));
+
+  const animatedGiftStyle = useAnimatedStyle(() => ({
+    left: giftPosition,
+    transform: [{ scale: giftScale.value }],
+  }));
+
   return (
     <ThemedView style={styles.container}>
-      {/* Title */}
+      {/* Title (unchanged) */}
       <ThemedView style={styles.titleContainer}>
         <ThemedText
           style={{ color: "#f26621", fontStyle: "italic", padding: 10 }}
@@ -57,35 +85,33 @@ export default function TabTwoScreen() {
         </ThemedText>
       </ThemedView>
 
-      {/* Fancy Progress Path */}
+      {/* Enhanced Progress Path */}
       <View style={styles.progressPathContainer}>
-        {/* Background Path */}
+        {/* Background Path with Glow */}
         <LinearGradient
-          colors={["#fbe8d3", "#fde7c2"]}
+          colors={["#e0f7fa", "#b2ebf2"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.pathBackground}
         />
 
-        {/* Filled Path */}
-        <View
-          style={[
-            styles.pathFill,
-            { width: `${progressPercentage}%` },
-          ]}
-        >
+        {/* Animated Filled Path */}
+        <Animated.View style={[styles.pathFill, animatedProgressStyle]}>
           <LinearGradient
-            colors={["#ffb347", "#f26621"]}
+            colors={["#ff6d00", "#ff8f00", "#ffab40"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
           />
-        </View>
+        </Animated.View>
 
-        {/* Moving Gift Icon */}
-        <View style={[styles.movingGiftIcon, { left: giftPosition }]}>
-          <FontAwesome name="gift" size={28} color="#fff" />
-        </View>
+        {/* Moving Gift Icon with Percentage Tooltip */}
+        <Animated.View style={[styles.movingGiftIcon, animatedGiftStyle]}>
+          <View style={styles.tooltip}>
+            <Text style={styles.tooltipText}>{`${Math.round(progressPercentage)}%`}</Text>
+          </View>
+          {/* <FontAwesome name="gift" size={28} color="#fff" /> */}
+        </Animated.View>
       </View>
 
       {/* Percentage Text */}
@@ -93,14 +119,14 @@ export default function TabTwoScreen() {
         {availablePoints} / {totalPoints} Points
       </Text>
 
-      {/* Points Display */}
+      {/* Points Display (unchanged) */}
       <ThemedView style={styles.pointsContainer}>
         <ThemedText style={styles.pointText} type="defaultSemiBold">
           Available Points: {availablePoints}
         </ThemedText>
       </ThemedView>
 
-      {/* Items */}
+      {/* Items (unchanged) */}
       {itemsData.map((item) => (
         <View key={item.id} style={styles.itemContainer}>
           <View style={styles.itemImageContainer}>
@@ -184,39 +210,65 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // Creative Progress Bar
+  // Enhanced Progress Bar Styles
   progressPathContainer: {
-    height: 30,
+    height: 40, // Increased height for better visibility
     width: "100%",
-    backgroundColor: "#fbe8d3",
-    borderRadius: 15,
+    backgroundColor: "#e0f7fa",
+    borderRadius: 20,
     overflow: "hidden",
     marginBottom: 15,
     position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8, // For Android shadow
   },
   pathBackground: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 15,
+    borderRadius: 20,
   },
   pathFill: {
     height: "100%",
-    borderRadius: 15,
+    borderRadius: 20,
     overflow: "hidden",
+    shadowColor: "#ff6d00",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   movingGiftIcon: {
     position: "absolute",
-    top: -6,
-    backgroundColor: "#f26621",
-    borderRadius: 20,
-    padding: 6,
-    elevation: 5,
+    top: -10, // Adjusted for larger icon
+    backgroundColor: "#ff6d00",
+    borderRadius: 24,
+    padding: 8,
+    elevation: 10,
     zIndex: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tooltip: {
+    position: "absolute",
+    top: -30,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  tooltipText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   creativeProgressText: {
     textAlign: "center",
     fontWeight: "bold",
-    color: "#444",
-    fontSize: 16,
-    marginBottom: 5,
+    color: "#333",
+    fontSize: 18,
+    marginBottom: 10,
+    letterSpacing: 0.5,
   },
 });

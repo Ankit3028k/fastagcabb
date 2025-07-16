@@ -246,6 +246,9 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginBottom: 20,
     alignItems: 'center',
+    
+    borderRadius: 50,
+   
   },
   avatarBorder: {
     width: 100,

@@ -1,12 +1,12 @@
 # FASTAGCAB - React Native App with Node.js Backend
 
-A comprehensive React Native application for electrician services with SMS-based OTP authentication using Twilio.
+A comprehensive React Native application for electrician services with SMS-based OTP authentication.
 
 ## 🚀 Features
 
 - **User Registration & Authentication** with OTP verification
-- **Twilio SMS Integration** for reliable OTP delivery
-- **Multi-service Fallback System** (Twilio → Infobip → Test OTP)
+- **SMS Integration** for reliable OTP delivery
+- **Multi-service Fallback System** (Infobip → Test OTP)
 - **File Upload Support** for user documents
 - **MongoDB Database** with user management
 - **JWT Authentication** for secure sessions
@@ -25,7 +25,7 @@ A comprehensive React Native application for electrician services with SMS-based
 - Express.js server
 - MongoDB with Mongoose
 - JWT authentication
-- Twilio SMS API
+- Infobip SMS API
 - Multer for file uploads
 - Redis for caching (optional)
 
@@ -34,7 +34,7 @@ A comprehensive React Native application for electrician services with SMS-based
 ### Prerequisites
 - Node.js (v16 or higher)
 - MongoDB Atlas account
-- Twilio account for SMS services
+- Infobip account for SMS services (optional)
 - Expo CLI for React Native development
 
 ### Backend Setup
@@ -59,13 +59,8 @@ A comprehensive React Native application for electrician services with SMS-based
    
    # JWT
    JWT_SECRET=your_jwt_secret_key
-   
-   # Twilio (Primary SMS Service)
-   TWILIO_ACCOUNT_SID=your_twilio_account_sid
-   TWILIO_AUTH_TOKEN=your_twilio_auth_token
-   TWILIO_PHONE_NUMBER=your_twilio_phone_number
-   
-   # Infobip (Fallback SMS Service)
+
+   # Infobip (SMS Service - Optional)
    INFOBIP_BASE_URL=your_infobip_base_url
    INFOBIP_API_KEY=your_infobip_api_key
    ```
@@ -98,14 +93,14 @@ A comprehensive React Native application for electrician services with SMS-based
 
 ## 📧 SMS Service Configuration
 
-### Twilio Setup (Primary)
-1. Create a Twilio account at [twilio.com](https://twilio.com)
-2. Get your Account SID, Auth Token, and Phone Number
-3. For trial accounts, verify phone numbers at: [Twilio Console](https://console.twilio.com/us1/develop/phone-numbers/manage/verified)
+### Infobip Setup (Optional)
+1. Create an Infobip account at [infobip.com](https://infobip.com)
+2. Get your API Key and Base URL
+3. Configure SMS service in your Infobip dashboard
 
 ### Fallback Services
-- **Infobip**: Configure as secondary SMS service
 - **Test OTP**: Development fallback that logs OTP to console
+- **Console Output**: OTP is displayed in server console for testing
 
 ## 🔐 Security Features
 
@@ -138,11 +133,11 @@ A comprehensive React Native application for electrician services with SMS-based
 ### Backend Testing
 ```bash
 cd Backend
-node check-verified-numbers.js  # Check Twilio verified numbers
+npm run dev  # Start development server
 ```
 
 ### Test Credentials
-- Phone: 8959305284 (verified in Twilio)
+- Phone: 8959305284
 - Password: securePass123
 
 ## 🚀 Deployment

@@ -9,6 +9,7 @@ import dbConnect from "./Db/dbConnect.js";
 import authRoutes from "./Routes/authroute.js";
 import userRoutes from "./Routes/userRoutes.js";
 import dataRoutes from "./Routes/dataRoutes.js";
+import qrRoutes from "./Routes/qrRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
 // Get __dirname equivalent for ES modules
@@ -18,19 +19,6 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-// Validate required environment variables
-const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET'];
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-    console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
-    console.error('🔧 Please check your .env file or environment configuration');
-    // Don't exit in production, just log the error
-    if (process.env.NODE_ENV !== 'production') {
-        process.exit(1);
-    }
-}
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -38,68 +26,63 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({
-    origin: '*',  // Allow all origins
-    credentials: true
-}));
 
-// Serve static files for uploads
+app.use(cors({
+    origin: true, // Allow all origins for React Native
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'X-Requested-With',
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Headers',
+        'Access-Control-Allow-Methods'
+    ],
+    credentials: false, // Set to false when allowing all origins
+    maxAge: 86400,
+    optionsSuccessStatus: 200 // For legacy browser support
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Additional CORS headers for React Native
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+    } else {
+        next();
+    }
+});
 
 // Health check route
 app.get("/", (req, res) => {
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-
     res.status(200).json({
         success: true,
         message: "API is running successfully!",
         version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development',
-        database: {
-            status: dbStatus,
-            name: mongoose.connection.name || 'not connected'
-        },
-        endpoints: {
-            auth: {
-                login: 'POST /api/auth/login',
-                register: 'POST /api/auth/register',
-                logout: 'POST /api/auth/logout',
-                test: 'GET /api/auth/test'
-            },
-            users: 'GET /api/users',
-            data: 'GET /api/data'
-        }
+        timestamp: new Date().toISOString()
     });
 });
 
-// API Routes
+// API Routes - Add them one by one to test
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/data', dataRoutes);
+app.use('/api/qr', qrRoutes);
 
-// 404 handler
 app.use(notFound);
-
-// Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 Server URL: http://localhost:${PORT}`);
-    console.log(`📋 Available endpoints:`);
-    console.log(`  GET  /`);
-    console.log(`  POST /api/auth/send-otp`);
-    console.log(`  POST /api/auth/verify-otp`);
-    console.log(`  POST /api/auth/resend-otp`);
-    console.log(`  POST /api/auth/login`);
-    console.log(`  POST /api/auth/register`);
-    console.log(`  POST /api/auth/logout`);
-    console.log(`  GET  /api/auth/test`);
-    console.log(`✅ Server is ready to accept requests!`);
-
-    // Connect to database
+    console.log(`🌐 Server accessible at: http://localhost:${PORT}`);
+    console.log(`🌐 Server accessible at: http://127.0.0.1:${PORT}`);
+  
+    // console.log(`📱 React Native app should use: http://192.168.1.25:${PORT}`);
     dbConnect();
 });

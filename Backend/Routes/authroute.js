@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, logout, sendOTP, verifyOTP, resendOTP } from '../controllers/authController.js';
+import { register, login, logout, sendOTP, verifyOTP, resendOTP, verifyToken } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { uploadUserFiles } from '../utils/multerConfig.js';
 
@@ -13,6 +13,8 @@ router.get('/test', (req, res) => {
         message: 'Auth routes are working!'
     });
 });
+
+
 
 // Validation rules for registration
 const registerValidation = [
@@ -135,5 +137,10 @@ router.post('/login', loginValidation, login);
 // @desc    Logout user
 // @access  Private
 router.post('/logout', authenticateToken, logout);
+
+// @route   GET /api/auth/verify-token
+// @desc    Verify JWT token and return user data
+// @access  Private
+router.get('/verify-token', authenticateToken, verifyToken);
 
 export default router;

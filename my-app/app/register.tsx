@@ -120,8 +120,11 @@ export default function RegisterScreen() {
           <PhotoUpload
             title="Profile Photo*"
             value={form.profilePhoto}
-            onPhotoSelected={uri => update('profilePhoto', uri)}
+            onPhotoSelected={uri => update('profilePhoto', uri )}
             error={errors.profilePhoto}
+            cameraOnly={true}
+            
+            
           />
 
           <Field
