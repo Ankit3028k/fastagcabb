@@ -107,10 +107,10 @@ export default function TabTwoScreen() {
 
         {/* Moving Gift Icon with Percentage Tooltip */}
         <Animated.View style={[styles.movingGiftIcon, animatedGiftStyle]}>
-          <View style={styles.tooltip}>
+          {/* <View style={styles.tooltip}>
             <Text style={styles.tooltipText}>{`${Math.round(progressPercentage)}%`}</Text>
-          </View>
-          {/* <FontAwesome name="gift" size={28} color="#fff" /> */}
+          </View> */}
+          <FontAwesome name="gift" size={28} color="#fff" />
         </Animated.View>
       </View>
 
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   movingGiftIcon: {
     position: "absolute",
-    top: -10, // Adjusted for larger icon
+    top: -3, // Adjusted for larger icon
     backgroundColor: "#ff6d00",
     borderRadius: 24,
     padding: 8,

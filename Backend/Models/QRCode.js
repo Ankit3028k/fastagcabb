@@ -1,8 +1,8 @@
-// QRCode.js (ESM compatible)
+// QRCode.js (ESM compatible) - Updated for QR Code Redeem Automation
 import mongoose from 'mongoose';
 
 const qrCodeSchema = new mongoose.Schema({
-  code: {
+  qrCode: {
     type: String,
     required: true,
     unique: true,
@@ -13,21 +13,20 @@ const qrCodeSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  isActive: {
-    type: Boolean,
-    default: true
+  status: {
+    type: String,
+    enum: ['Not Redeem', 'Redeemed'],
+    default: 'Not Redeem'
   },
-  usedBy: {
+  redeemedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  usedAt: {
+  redeemedAt: {
     type: Date
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
+}, {
+  timestamps: true // This automatically adds createdAt and updatedAt fields
 });
 
 const QRCode = mongoose.model('QRCode', qrCodeSchema);
