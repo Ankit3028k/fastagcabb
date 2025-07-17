@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, logout, sendOTP, verifyOTP, resendOTP, verifyToken } from '../controllers/authController.js';
+import { register, login, logout, sendOTP, verifyOTP, resendOTP, verifyToken, forgotPasswordSendOTP, resetPasswordWithOTP } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { uploadUserFiles } from '../utils/multerConfig.js';
 
@@ -108,6 +108,27 @@ const verifyOtpValidation = [
         .withMessage('OTP must be 6 digits')
 ];
 
+// Forgot password validation rules
+const forgotPasswordValidation = [
+    body('phoneNumber')
+        .matches(/^[6-9]\d{9}$/)
+        .withMessage('Please provide a valid 10-digit phone number')
+];
+
+const resetPasswordValidation = [
+    body('phoneNumber')
+        .matches(/^[6-9]\d{9}$/)
+        .withMessage('Please provide a valid 10-digit phone number'),
+
+    body('otp')
+        .matches(/^\d{6}$/)
+        .withMessage('OTP must be 6 digits'),
+
+    body('newPassword')
+        .isLength({ min: 6 })
+        .withMessage('New password must be at least 6 characters long')
+];
+
 // @route   POST /api/auth/send-otp
 // @desc    Send OTP to phone number
 // @access  Public
@@ -142,5 +163,15 @@ router.post('/logout', authenticateToken, logout);
 // @desc    Verify JWT token and return user data
 // @access  Private
 router.get('/verify-token', authenticateToken, verifyToken);
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send OTP for password reset
+// @access  Public
+router.post('/forgot-password', forgotPasswordValidation, forgotPasswordSendOTP);
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with OTP verification
+// @access  Public
+router.post('/reset-password', resetPasswordValidation, resetPasswordWithOTP);
 
 export default router;
