@@ -22,11 +22,22 @@ export default function EditProfileScreen() {
 
   const [formData, setFormData] = useState({
     name: '',
-    // mobileNumber: '',
+    password: '',
+    dateOfBirth: null as Date | null,
+    age: '',
+    phoneNumber: '',
+    adharNumber: '',
+    panCardNumber: '',
+    pinCode: '',
+    state: '',
+    city: '',
     address: '',
-    accountNumber: '',
-    ifscCode: '',
+    dealerCode: '',
     profilePhoto: '',
+    adharCard: '',
+    panCard: '',
+    bankDetails: '',
+    role: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -34,12 +45,23 @@ export default function EditProfileScreen() {
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name || '',
-        // mobileNumber: user.mobileNumber || '',
+        name: user.fullName || '',
+        password: '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth) : null,
+        age: user.age?.toString() || '',
+        phoneNumber: user.phoneNumber || '',
+        adharNumber: user.adharNumber || '',
+        panCardNumber: user.panCardNumber || '',
+        pinCode: user.pinCode || '',
+        state: user.state || '',
+        city: user.city || '',
         address: user.address || '',
-        accountNumber: user.accountNumber || '',
-        ifscCode: user.ifscCode || '',
+        dealerCode: user.dealerCode || '',
         profilePhoto: user.profilePhoto || '',
+        adharCard: user.adharCard || '',
+        panCard: user.panCard || '',
+        bankDetails: user.bankDetails || '',
+        role: user.role || '',
       });
     }
   }, [user]);
@@ -55,15 +77,20 @@ export default function EditProfileScreen() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = 'Name is required';
-    // if (!formData.mobileNumber.trim()) newErrors.mobileNumber = 'Mobile number is required';
+    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
     if (!formData.address.trim()) newErrors.address = 'Address is required';
+    if (!formData.pinCode.trim()) newErrors.pinCode = 'Pin code is required';
+    if (!formData.state.trim()) newErrors.state = 'State is required';
+    if (!formData.city.trim()) newErrors.city = 'City is required';
+    if (!formData.dealerCode.trim()) newErrors.dealerCode = 'Dealer code is required';
+    if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
 
-    if (formData.accountNumber && !formData.ifscCode) {
-      newErrors.ifscCode = 'IFSC code is required when account number is provided';
+    if (formData.adharNumber && formData.adharNumber.length !== 12) {
+      newErrors.adharNumber = 'Aadhar number must be 12 digits';
     }
 
-    if (formData.ifscCode && !formData.accountNumber) {
-      newErrors.accountNumber = 'Account number is required when IFSC code is provided';
+    if (formData.panCardNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panCardNumber)) {
+      newErrors.panCardNumber = 'Invalid PAN format';
     }
 
     if (!formData.profilePhoto) newErrors.profilePhoto = 'Profile photo is required';
@@ -126,17 +153,140 @@ export default function EditProfileScreen() {
               placeholder="Enter your full name"
             />
 
-            {/* Mobile Number */}
-            {/* <InputField
-              label="Mobile Number"
-              icon="call-outline"
-              value={formData.mobileNumber}
-              onChangeText={text => updateField('mobileNumber', text)}
-              error={errors.mobileNumber}
+            {/* Password */}
+            <InputField
+              label="Password"
+              icon="lock-closed-outline"
+              value={formData.password}
+              onChangeText={text => updateField('password', text)}
+              error={errors.password}
               editable={isEditable}
-              placeholder="Enter your mobile number"
+              placeholder="Enter new password (leave blank to keep current)"
+              secureTextEntry
+            />
+
+            {/* Date of Birth */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Date of Birth</Text>
+              <TouchableOpacity
+                style={[styles.inputWrapper, errors.dateOfBirth ? styles.inputError : null]}
+                onPress={() => {
+                  if (isEditable) {
+                    // Add date picker logic here
+                  }
+                }}
+                disabled={!isEditable}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" style={styles.inputIcon} />
+                <Text style={[styles.input, { paddingTop: 12 }]}>
+                  {formData.dateOfBirth ? formData.dateOfBirth.toDateString() : 'Select date of birth'}
+                </Text>
+              </TouchableOpacity>
+              {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
+            </View>
+
+            {/* Age */}
+            <InputField
+              label="Age"
+              icon="time-outline"
+              value={formData.age}
+              onChangeText={text => updateField('age', text)}
+              error={errors.age}
+              editable={false}
+              placeholder="Calculated automatically"
+            />
+
+            {/* Phone Number */}
+            <InputField
+              label="Phone Number"
+              icon="call-outline"
+              value={formData.phoneNumber}
+              onChangeText={text => updateField('phoneNumber', text)}
+              error={errors.phoneNumber}
+              editable={isEditable}
+              placeholder="Enter your phone number"
               keyboardType="phone-pad"
-            /> */}
+            />
+
+            {/* Aadhar Number */}
+            <InputField
+              label="Aadhar Number (Optional)"
+              icon="card-outline"
+              value={formData.adharNumber}
+              onChangeText={text => updateField('adharNumber', text)}
+              error={errors.adharNumber}
+              editable={isEditable}
+              placeholder="Enter 12-digit Aadhar number"
+              keyboardType="number-pad"
+            />
+
+            {/* Aadhar Card Photo */}
+            <PhotoUpload
+              title="Aadhar Card Photo (Optional)"
+              subtitle="Upload clear photo of Aadhar card"
+              value={formData.adharCard}
+              onPhotoSelected={(uri) => updateField('adharCard', uri)}
+              error={errors.adharCard}
+              icon="card-outline"
+              disabled={!isEditable}
+            />
+
+            {/* PAN Card Number */}
+            <InputField
+              label="PAN Card Number (Optional)"
+              icon="business-outline"
+              value={formData.panCardNumber}
+              onChangeText={text => updateField('panCardNumber', text.toUpperCase())}
+              error={errors.panCardNumber}
+              editable={isEditable}
+              placeholder="Enter PAN number"
+              autoCapitalize="characters"
+            />
+
+            {/* PAN Card Photo */}
+            <PhotoUpload
+              title="PAN Card Photo (Optional)"
+              subtitle="Upload clear photo of PAN card"
+              value={formData.panCard}
+              onPhotoSelected={(uri) => updateField('panCard', uri)}
+              error={errors.panCard}
+              icon="business-outline"
+              disabled={!isEditable}
+            />
+
+            {/* Pin Code */}
+            <InputField
+              label="Pin Code"
+              icon="location-outline"
+              value={formData.pinCode}
+              onChangeText={text => updateField('pinCode', text)}
+              error={errors.pinCode}
+              editable={isEditable}
+              placeholder="Enter pin code"
+              keyboardType="number-pad"
+            />
+
+            {/* State */}
+            <InputField
+              label="State"
+              icon="map-outline"
+              value={formData.state}
+              onChangeText={text => updateField('state', text)}
+              error={errors.state}
+              editable={isEditable}
+              placeholder="Enter your state"
+            />
+
+            {/* City */}
+            <InputField
+              label="City"
+              icon="location-outline"
+              value={formData.city}
+              onChangeText={text => updateField('city', text)}
+              error={errors.city}
+              editable={isEditable}
+              placeholder="Enter your city"
+            />
 
             {/* Address */}
             <InputField
@@ -150,29 +300,29 @@ export default function EditProfileScreen() {
               multiline
             />
 
-            {/* Account Number */}
+            {/* Dealer Code */}
             <InputField
-              label="Account Number"
-              icon="card-outline"
-              value={formData.accountNumber}
-              onChangeText={text => updateField('accountNumber', text)}
-              error={errors.accountNumber}
-              editable={isEditable}
-              placeholder="Enter your account number"
-              keyboardType="number-pad"
-            />
-
-            {/* IFSC Code */}
-            <InputField
-              label="IFSC Code"
+              label="Dealer Code"
               icon="business-outline"
-              value={formData.ifscCode}
-              onChangeText={text => updateField('ifscCode', text.toUpperCase())}
-              error={errors.ifscCode}
+              value={formData.dealerCode}
+              onChangeText={text => updateField('dealerCode', text.toUpperCase())}
+              error={errors.dealerCode}
               editable={isEditable}
-              placeholder="Enter your IFSC code"
+              placeholder="Enter dealer code"
               autoCapitalize="characters"
             />
+
+            {/* Role */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Role</Text>
+              <View style={[styles.inputWrapper, errors.role ? styles.inputError : null]}>
+                <Ionicons name="person-circle-outline" size={20} color="#666" style={styles.inputIcon} />
+                <Text style={[styles.input, { paddingTop: 12, color: isEditable ? '#000' : '#666' }]}>
+                  {formData.role}
+                </Text>
+              </View>
+              {errors.role && <Text style={styles.errorText}>{errors.role}</Text>}
+            </View>
 
             {/* Profile Photo Upload */}
             <PhotoUpload
@@ -183,6 +333,17 @@ export default function EditProfileScreen() {
               error={errors.profilePhoto}
               required
               icon="person-outline"
+              disabled={!isEditable}
+            />
+
+            {/* Bank Details Photo */}
+            <PhotoUpload
+              title="Bank Details (Optional)"
+              subtitle="Upload bank passbook or statement"
+              value={formData.bankDetails}
+              onPhotoSelected={(uri) => updateField('bankDetails', uri)}
+              error={errors.bankDetails}
+              icon="card-outline"
               disabled={!isEditable}
             />
 
@@ -349,3 +510,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+
+
+
+
+
+
+

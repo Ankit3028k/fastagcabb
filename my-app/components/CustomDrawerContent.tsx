@@ -31,7 +31,7 @@ const menuItems: MenuItem[] = [
   // { id: '3', title: 'Latest Update', icon: 'newspaper', route: '/updates' },
   { id: '4', title: 'Contact Us', icon: 'mail', route: '/contact' },
   { id: '5', title: 'Our Products', icon: 'storefront', route: '/products' },
-  { id: '6', title: 'Schemes', icon: 'briefcase', route: '/schemes' },
+  // { id: '6', title: 'Schemes', icon: 'briefcase', route: '/schemes' },
   { id: '7', title: 'Terms & Conditions', icon: 'document-text', route: '/terms' },
   // { id: '8', title: 'Privacy Policy', icon: 'lock-closed', route: '/privacy' },
   // { id: '9', title: 'Point Details', icon: 'cash', route: '/points' },

@@ -204,14 +204,30 @@ export const register = async (req, res) => {
       role: sanitize(role || 'Electrician')
     };
 
-    // Check if user exists
-    const existingUser = await asyncRetry(
-      async () => await User.findOne({ phoneNumber: sanitizedData.phoneNumber }).maxTimeMS(15000),
-      { retries: 3, minTimeout: 1000, factor: 2 }
-    );
+    // Check for existing users with comprehensive field validation
+    const conflictChecks = [
+      { field: 'phoneNumber', value: sanitizedData.phoneNumber, message: 'Phone number already registered' },
+      { field: 'adharNumber', value: sanitizedData.adharNumber, message: 'Adhar number already registered' },
+      { field: 'panCardNumber', value: sanitizedData.panCardNumber, message: 'PAN card number already registered' },
+      { field: 'dealerCode', value: sanitizedData.dealerCode, message: 'Dealer code already in use' }
+    ];
 
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+    for (const check of conflictChecks) {
+      if (check.value) { // Only check if the field has a value
+        const existingUser = await asyncRetry(
+          async () => await User.findOne({ [check.field]: check.value }).maxTimeMS(15000),
+          { retries: 3, minTimeout: 1000, factor: 2 }
+        );
+
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: check.message,
+            field: check.field,
+            conflictingValue: check.value
+          });
+        }
+      }
     }
 
     // Validate file uploads
@@ -277,7 +293,23 @@ export const register = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Database timeout' });
     }
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+      // Extract the field name from the duplicate key error
+      const duplicateField = Object.keys(error.keyPattern || {})[0];
+      const fieldMessages = {
+        phoneNumber: 'Phone number already registered',
+        adharNumber: 'Adhar number already registered',
+        panCardNumber: 'PAN card number already registered',
+        dealerCode: 'Dealer code already in use',
+        email: 'Email address already registered'
+      };
+
+      const message = fieldMessages[duplicateField] || 'User already exists';
+      return res.status(400).json({
+        success: false,
+        message,
+        field: duplicateField,
+        error: 'DUPLICATE_KEY'
+      });
     }
     res.status(500).json({
       success: false,

@@ -34,7 +34,7 @@ export default function SchemesScreen() {
           <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
             {/* <Ionicons name="briefcase" size={40} color={colors.primary} /> */}
              <Image
-                            source={require('../assets/images/fastagcab.png')}
+                            source={require('../assets/images/dth.jpg')}
                             style={styles.schemeImage}
                           />
           </View>
@@ -50,12 +50,12 @@ export default function SchemesScreen() {
                   <View style={styles.table}>
                     {[
                       ['0.75 mm', '5 Points'],
-                      ['1.0 mm', '10 Points'],
-                      ['1.5 mm', '15 Points'],
-                      ['2.5 mm', '25 Points'],
-                      ['4.0 mm', '40 Points'],
-                      ['6.0 mm', '60 Points'],
-                      ['10.0 mm', '100 Points'],
+                      ['1.0 mm', '5 Points'],
+                      ['1.5 mm', '10 Points'],
+                      ['2.5 mm', '15 Points'],
+                      ['4.0 mm', '20 Points'],
+                    //   ['6.0 mm', '60 Points'],
+                    //   ['10.0 mm', '100 Points'],
                     ].map(([size, points], index) => (
                       <View key={index} style={styles.tableRow}>
                         <Text style={[styles.tableCell, { color: colors.text }]}>{size}</Text>

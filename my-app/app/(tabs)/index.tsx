@@ -110,26 +110,30 @@ export default function HomeScreen() {
     ]);
   };
 
-  const handleSchemes = (scheme: string) => {
-    router.push(`/schemes/${scheme.toLowerCase()}`);
-  };
+const handleSchemes = (scheme: string) => {
+  router.push(`../../schemes?scheme=${scheme}`);
+};
+const handleDthSchemes = (scheme: string) => {
+  router.push(`../../dthschemes?dthscheme=${scheme}`);
+};
 
-  const handleReferralShare = async () => {
-    if (!user?.referralCode) {
-      Alert.alert('Error', 'Referral code not available');
-      return;
-    }
-    const referralLink = `https://myapp.com/ref/${user.referralCode}`;
-    try {
-      await Share.share({
-        message: `Join me on this amazing app and earn 200 points! Use my referral code: ${user.referralCode}\n\n${referralLink}`,
-        title: 'Join and Earn Points!',
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-      Alert.alert('Error', 'Failed to share referral link');
-    }
-  };
+
+  // const handleReferralShare = async () => {
+  //   if (!user?.referralCode) {
+  //     Alert.alert('Error', 'Referral code not available');
+  //     return;
+  //   }
+  //   const referralLink = `https://myapp.com/ref/${user.referralCode}`;
+  //   try {
+  //     await Share.share({
+  //       message: `Join me on this amazing app and earn 200 points! Use my referral code: ${user.referralCode}\n\n${referralLink}`,
+  //       title: 'Join and Earn Points!',
+  //     });
+  //   } catch (error) {
+  //     console.error('Error sharing:', error);
+  //     Alert.alert('Error', 'Failed to share referral link');
+  //   }
+  // };
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -399,7 +403,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[styles.rechargeButton, { borderColor: colors.secondary, backgroundColor: colors.secondary + '10' }]}
-              onPress={() => handleSchemes('DDH')}
+              onPress={() => handleDthSchemes('DDH')}
             >
               <Image
                 source={require('../../assets/images/dth.jpg')}

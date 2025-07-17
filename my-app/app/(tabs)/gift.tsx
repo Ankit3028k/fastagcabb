@@ -1,9 +1,11 @@
 import React, { useEffect } from "react";
+import { useAuth } from '@/contexts/AuthContext';
 import {
   TouchableOpacity,
   Text,
   Image,
   StyleSheet,
+  ScrollView,
   View,
   Dimensions,
 } from "react-native";
@@ -25,28 +27,125 @@ const screenWidth = Dimensions.get("window").width;
 const itemsData = [
   {
     id: "1",
-    name: "Watch",
-    points: 50,
-    image:
-      "https://images.unsplash.com/photo-1622434641406-a158123450f9?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHdhdGNofGVufDB8fDB8fHww",
+    name: "T-Shirt",
+    points: 500,
+    image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
   },
   {
     id: "2",
-    name: "Bag",
-    points: 100,
-    image:
-      "https://shop.imgacademy.com/cdn/shop/products/newroyalbackpacks.jpg?v=1653333565",
+    name: "Earbuds",
+    points: 1000,
+    image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
   },
   {
     id: "3",
-    name: "Shoes",
-    points: 200,
-    image: "https://m.media-amazon.com/images/I/71f3BmjCwtL.jpg",
+    name: "Pressure Cooker",
+    points: 2000,
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
   },
+  {
+    id: "4",
+    name: "4 Burner Gas Oven",
+    points: 5000,
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "5",
+    name: "LCD Television + Health Insurance 1 Lakh",
+    points: 10000,
+    image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "6",
+    name: "Godrej Almirah / Smartphone",
+    points: 20000,
+    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "7",
+    name: "AC 1.5 Tonne",
+    points: 50000,
+    image: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "8",
+    name: "1 Person Thailand Trip + Shopping Voucher Rs.15,000",
+    points: 75000,
+    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "9",
+    name: "10 Grams Gold",
+    points: 100000,
+    image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "10",
+    name: "2 Person Dubai Trip + Health Insurance 2 Lakh",
+    points: 125000,
+    image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "11",
+    name: "Splendor Bike / Scooty",
+    points: 150000,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "12",
+    name: "Electric Scooty",
+    points: 175000,
+    image: "https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "13",
+    name: "3 Person Thailand Trip + Shopping Voucher Rs.35,000",
+    points: 200000,
+    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "14",
+    name: "Bullet",
+    points: 250000,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "15",
+    name: "Sofa + AC + TV + Bed + Smartphone + Almirah + Dining Table + Kitchen Bartan Set & More + Health Insurance 5 Lakh",
+    points: 300000,
+    image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "16",
+    name: "40 Grams Gold",
+    points: 350000,
+    image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "17",
+    name: "50 Grams Gold",
+    points: 400000,
+    image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "18",
+    name: "60 Grams Gold",
+    points: 450000,
+    image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+  {
+    id: "19",
+    name: "Car + Health Insurance 10 Lakh",
+    points: 551000,
+    image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=150&h=150&fit=crop&crop=center&auto=format&q=80",
+  },
+
+
 ];
 
 export default function TabTwoScreen() {
-  const availablePoints = 250;
+  const { user, addPoints, processQRCode, processRecharge } = useAuth();
+  const availablePoints = user?.monthlyPoints || 0;
   const totalPoints = 500;
   const progressPercentage = (availablePoints / totalPoints) * 100;
   const giftPosition = (screenWidth - 80) * (progressPercentage / 100); // Adjust for padding
@@ -86,6 +185,7 @@ export default function TabTwoScreen() {
       </ThemedView>
 
       {/* Enhanced Progress Path */}
+       
       <View style={styles.progressPathContainer}>
         {/* Background Path with Glow */}
         <LinearGradient
@@ -127,6 +227,7 @@ export default function TabTwoScreen() {
       </ThemedView>
 
       {/* Items (unchanged) */}
+<ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
       {itemsData.map((item) => (
         <View key={item.id} style={styles.itemContainer}>
           <View style={styles.itemImageContainer}>
@@ -143,6 +244,8 @@ export default function TabTwoScreen() {
           </View>
         </View>
       ))}
+      </ScrollView>
+     
     </ThemedView>
   );
 }
@@ -270,5 +373,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 10,
     letterSpacing: 0.5,
+  },
+  scrollView: {
+    flex: 1,
   },
 });
