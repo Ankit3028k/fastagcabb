@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import InteraktSMSService from '@/services/interaktSMSService';
+import InteraktWhatsAppService from '@/services/interaktWhatsAppService';
 import Infobip2FAService from '@/services/infobip2FAService';
 import InfobipSMSService from '@/services/infobipSMSService';
 import TestOTPService from '@/services/testOTPService';
@@ -54,6 +54,9 @@ interface AuthContextType {
   resendOtpRequest: (phoneNumber: string) => Promise<{ success: boolean; message: string }>;
   verifyOtpAndRegister: (phoneNumber: string, otp: string, userData: any) => Promise<{ success: boolean; message: string }>;
   resetInfobipApplication: () => Promise<{ success: boolean; message: string }>;
+  // Forgot password functions
+  forgotPasswordSendOTP: (phoneNumber: string) => Promise<{ success: boolean; message: string }>;
+  resetPasswordWithOTP: (phoneNumber: string, otp: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isAuthenticated: boolean;
   // Additional functions to prevent crashes
@@ -388,73 +391,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // OTP functions with Interakt as primary service
+  // OTP functions with Infobip SMS as primary service
   const sendOtpRequest = async (phoneNumber: string) => {
     try {
       setIsLoading(true);
       console.log('🚀 AUTHCONTEXT: Sending OTP to:', phoneNumber);
 
-      // Use Interakt SMS service as primary
-      console.log('🚀 AUTHCONTEXT: Using Interakt SMS service for OTP...');
-      const resultInterakt = await InteraktSMSService.sendOTP(phoneNumber);
+      // Use Infobip SMS service as primary
+      console.log('🚀 AUTHCONTEXT: Using Infobip SMS service for OTP...');
+      const resultInfobipSMS = await InfobipSMSService.sendOTP(phoneNumber);
 
-      if (resultInterakt.success) {
-        console.log('✅ OTP sent successfully via Interakt SMS');
-        console.log('🔢 Generated OTP (for debugging):', resultInterakt.data?.otp);
+      if (resultInfobipSMS.success) {
+        console.log('✅ OTP sent successfully via Infobip SMS');
         return {
           success: true,
-          message: 'OTP sent successfully to your mobile number via Interakt. Please check your SMS.'
+          message: 'OTP sent successfully to your mobile number via Infobip. Please check your SMS.'
         };
       } else {
-        console.error('❌ Interakt SMS service failed:', resultInterakt.message);
+        console.error('❌ Infobip SMS service failed:', resultInfobipSMS.message);
 
-        // Try Infobip SMS service as fallback
-        console.log('🔄 Interakt failed, trying Infobip SMS service as fallback...');
-        const resultInfobipSMS = await InfobipSMSService.sendOTP(phoneNumber);
+        // Try 2FA service as fallback
+        console.log('🔄 Infobip SMS failed, trying 2FA service as fallback...');
+        const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
 
-        if (resultInfobipSMS.success) {
-          console.log('✅ OTP sent successfully via Infobip SMS');
+        if (result2FA.success) {
+          console.log('✅ OTP sent successfully via Infobip 2FA');
           return {
             success: true,
-            message: 'OTP sent successfully to your mobile number via Infobip. Please check your SMS.'
+            message: 'OTP sent successfully to your mobile number via 2FA. Please check your SMS.'
           };
         } else {
-          console.error('❌ Infobip SMS service failed:', resultInfobipSMS.message);
+          console.error('❌ All primary services failed:', {
+            'Infobip SMS': resultInfobipSMS.message,
+            'Infobip 2FA': result2FA.message
+          });
 
-          // Try 2FA service as fallback
-          console.log('🔄 Infobip SMS failed, trying 2FA service as fallback...');
-          const result2FA = await Infobip2FAService.sendOTP(phoneNumber);
+          // Use test OTP service as final fallback
+          console.log('🧪 All primary services failed, using test OTP service...');
+          const testResult = await TestOTPService.sendOTP(phoneNumber);
 
-          if (result2FA.success) {
-            console.log('✅ OTP sent successfully via Infobip 2FA');
+          if (testResult.success) {
+            console.log('✅ Test OTP service succeeded');
             return {
               success: true,
-              message: 'OTP sent successfully to your mobile number via 2FA. Please check your SMS.'
+              message: 'OTP sent successfully via test service. Check console for OTP.'
             };
           } else {
-            console.error('❌ All primary services failed:', {
-              'Interakt': resultInterakt.message,
-              'Infobip SMS': resultInfobipSMS.message,
-              'Infobip 2FA': result2FA.message
-            });
-
-            // Use test OTP service as final fallback
-            console.log('🧪 All primary services failed, using test OTP service...');
-            const testResult = await TestOTPService.sendOTP(phoneNumber);
-
-            if (testResult.success) {
-              console.log('✅ Test OTP service succeeded');
-              return {
-                success: true,
-                message: 'OTP sent successfully via test service. Check console for OTP.'
-              };
-            } else {
-              console.error('❌ All services failed including test service');
-              return {
-                success: false,
-                message: 'All OTP services failed. Please try again later.'
-              };
-            }
+            console.error('❌ All services failed including test service');
+            return {
+              success: false,
+              message: 'All OTP services failed. Please try again later.'
+            };
           }
         }
       }
@@ -474,15 +461,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log('Verifying OTP for:', phoneNumber);
 
-      // Try Interakt SMS service first (primary)
-      console.log('🔍 Trying Interakt SMS verification...');
-      let verificationResult = await InteraktSMSService.verifyOTP(phoneNumber, otp);
-
-      // If Interakt fails, try Infobip SMS service
-      if (!verificationResult.success) {
-        console.log('🔄 Interakt verification failed, trying Infobip SMS service...');
-        verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
-      }
+      // Try Infobip SMS service first (primary)
+      console.log('🔍 Trying Infobip SMS verification...');
+      let verificationResult = await InfobipSMSService.verifyOTP(phoneNumber, otp);
 
       // If Infobip SMS fails, try 2FA service
       if (!verificationResult.success) {
@@ -551,14 +532,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log('Resending OTP to:', phoneNumber);
 
-      // Try Interakt SMS service first (primary)
-      console.log('🔄 Trying Interakt SMS resend...');
-      let result = await InteraktSMSService.resendOTP(phoneNumber);
+      // Try Infobip SMS service first (primary)
+      console.log('🔄 Trying Infobip SMS resend...');
+      let result = await InfobipSMSService.resendOTP(phoneNumber);
 
-      // If Interakt fails, try Infobip SMS service
+      // If Infobip SMS fails, try 2FA service
       if (!result.success) {
-        console.log('🔄 Interakt resend failed, trying Infobip SMS service...');
-        result = await InfobipSMSService.resendOTP(phoneNumber);
+        console.log('🔄 Infobip SMS resend failed, trying 2FA service...');
+        result = await Infobip2FAService.resendOTP(phoneNumber);
       }
 
       // If Infobip SMS fails, try 2FA service
@@ -723,6 +704,100 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Forgot password functions - using WhatsApp via Interakt
+  const forgotPasswordSendOTP = async (phoneNumber: string) => {
+    try {
+      setIsLoading(true);
+      console.log('🚀 AUTHCONTEXT: Sending forgot password OTP to WhatsApp:', phoneNumber);
+
+      // Use Interakt WhatsApp service for forgot password OTP
+      console.log('🚀 AUTHCONTEXT: Using Interakt WhatsApp service for forgot password OTP...');
+      const resultWhatsApp = await InteraktWhatsAppService.sendOTP(phoneNumber);
+
+      if (resultWhatsApp.success) {
+        console.log('✅ Forgot password OTP sent successfully via WhatsApp');
+        console.log('🔢 Generated OTP (for debugging):', resultWhatsApp.data?.otp);
+        return {
+          success: true,
+          message: 'Password reset code sent to your WhatsApp. Please check your messages.'
+        };
+      } else {
+        console.error('❌ WhatsApp service failed:', resultWhatsApp.message);
+
+        // Fallback to backend API if WhatsApp fails
+        console.log('🔄 WhatsApp failed, trying backend API as fallback...');
+        const response = await fetch(`${backendUrl}/api/auth/forgot-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ phoneNumber }),
+        });
+
+        const result = await response.json();
+        return result;
+      }
+    } catch (error) {
+      console.error('Forgot password send OTP error:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection and try again.',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPasswordWithOTP = async (phoneNumber: string, otp: string, newPassword: string) => {
+    try {
+      setIsLoading(true);
+      console.log('🔍 AUTHCONTEXT: Verifying OTP and resetting password for:', phoneNumber);
+
+      // First verify OTP with WhatsApp service
+      console.log('🔍 Trying WhatsApp OTP verification...');
+      let verificationResult = await InteraktWhatsAppService.verifyOTP(phoneNumber, otp);
+
+      if (verificationResult.success) {
+        console.log('✅ WhatsApp OTP verified successfully, proceeding with password reset');
+
+        // If OTP is verified, proceed with password reset via backend
+        const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ phoneNumber, otp, newPassword }),
+        });
+
+        const result = await response.json();
+        return result;
+      } else {
+        console.error('❌ WhatsApp OTP verification failed:', verificationResult.message);
+
+        // Fallback to backend verification if WhatsApp fails
+        console.log('🔄 WhatsApp verification failed, trying backend verification...');
+        const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ phoneNumber, otp, newPassword }),
+        });
+
+        const result = await response.json();
+        return result;
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection and try again.',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -732,6 +807,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resendOtpRequest,
     verifyOtpAndRegister,
     resetInfobipApplication,
+    forgotPasswordSendOTP,
+    resetPasswordWithOTP,
     logout,
     isAuthenticated: !!user,
     addPoints,

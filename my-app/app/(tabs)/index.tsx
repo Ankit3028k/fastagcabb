@@ -49,6 +49,7 @@ export default function HomeScreen() {
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
 
+  console.log("url is",process.env.EXPO_PUBLIC_API_URL);
   // Professional banner images
   const bannerImages = [
     'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop&crop=center&auto=format&q=80',
@@ -75,6 +76,8 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [bannerImages.length]);
 
+  
+
   const handleStatusPress = (status: string) => {
     Alert.alert('Status', `Current status: ${status}`);
   };
@@ -83,6 +86,7 @@ export default function HomeScreen() {
     setShowQRScanner(true);
   };
 
+  console.log("user is",user);
   const handleRecharge = () => {
     console.log('🔄 Recharge button clicked - navigating to recharge page');
     Alert.alert('Debug', 'Recharge button clicked!', [
