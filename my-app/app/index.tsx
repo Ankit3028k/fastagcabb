@@ -7,6 +7,8 @@ export default function IndexScreen() {
   const { isAuthenticated, isLoading } = useAuth();
   const [hasNavigated, setHasNavigated] = useState(false);
 
+  console.log("server url is",process.env.EXPO_PUBLIC_API_URL);
+  console.log("environment is ", process.env.NODE_ENV);
   useFocusEffect(
     useCallback(() => {
       if (!isLoading && !hasNavigated) {

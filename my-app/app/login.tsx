@@ -92,7 +92,7 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logoBackground}>
-                <Image source={require('../assets/images/logo.png')} style={{ height: 80, width: 80 }} />
+                <Image source={require('../assets/images/fastagcab.png')} style={{ height: 80, width: 80 }} />
               </View>
             </View>
             <Text style={styles.title}>Welcome Back</Text>
@@ -154,8 +154,13 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-           
-
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={() => router.push('/forgot-password')}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
 
           </View>
 
@@ -288,6 +293,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    marginTop: 15,
+    padding: 10,
+  },
+  forgotPasswordText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
   demoButton: {
     marginTop: 16,
