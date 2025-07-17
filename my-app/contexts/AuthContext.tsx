@@ -64,6 +64,7 @@ interface AuthContextType {
   processQRCode?: (data: string) => Promise<{ success: boolean; message: string }>;
   processRecharge?: (amount: number) => Promise<{ success: boolean; message: string }>;
   updateUserPoints?: (monthlyPoints: number, yearlyPoints?: number) => Promise<{ success: boolean; message: string }>;
+  updateUserProfile?: (profileData: any) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -704,6 +705,98 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUserProfile = async (profileData: any) => {
+    try {
+      const storedToken = await AsyncStorage.getItem('authToken');
+      
+      if (!storedToken || !user) {
+        return {
+          success: false,
+          message: 'Authentication required. Please login again.'
+        };
+      }
+
+      // Create FormData for file uploads
+      const formData = new FormData();
+
+      // Add text fields
+      if (profileData.name) formData.append('fullName', profileData.name);
+      if (profileData.password) formData.append('password', profileData.password);
+      if (profileData.phoneNumber) formData.append('phoneNumber', profileData.phoneNumber);
+      if (profileData.dateOfBirth) {
+        const dateOfBirth = profileData.dateOfBirth instanceof Date ? profileData.dateOfBirth : new Date(profileData.dateOfBirth);
+        formData.append('dateOfBirth', dateOfBirth.toISOString().split('T')[0]);
+      }
+      if (profileData.age) formData.append('age', profileData.age.toString());
+      if (profileData.adharNumber) formData.append('adharNumber', profileData.adharNumber);
+      if (profileData.panCardNumber) formData.append('panCardNumber', profileData.panCardNumber);
+      if (profileData.pinCode) formData.append('pinCode', profileData.pinCode);
+      if (profileData.state) formData.append('state', profileData.state);
+      if (profileData.city) formData.append('city', profileData.city);
+      if (profileData.address) formData.append('address', profileData.address);
+      if (profileData.dealerCode) formData.append('dealerCode', profileData.dealerCode);
+
+      // Add files if they are new uploads (check if they are local URIs)
+      if (profileData.profilePhoto && profileData.profilePhoto.startsWith('file://')) {
+        formData.append('profilePhoto', {
+          uri: profileData.profilePhoto,
+          type: 'image/jpeg',
+          name: 'profile.jpg',
+        } as any);
+      }
+
+      if (profileData.adharCard && profileData.adharCard.startsWith('file://')) {
+        formData.append('adharCard', {
+          uri: profileData.adharCard,
+          type: 'image/jpeg',
+          name: 'adhar.jpg',
+        } as any);
+      }
+
+      if (profileData.panCard && profileData.panCard.startsWith('file://')) {
+        formData.append('panCard', {
+          uri: profileData.panCard,
+          type: 'image/jpeg',
+          name: 'pan.jpg',
+        } as any);
+      }
+
+      if (profileData.bankDetails && profileData.bankDetails.startsWith('file://')) {
+        formData.append('bankDetails', {
+          uri: profileData.bankDetails,
+          type: 'image/jpeg',
+          name: 'bank.jpg',
+        } as any);
+      }
+
+      const response = await fetch(`${backendUrl}/api/users/${user._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${storedToken}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update user in context
+        setUser(result.data.user);
+        // Update stored user data
+        await AsyncStorage.setItem('user', JSON.stringify(result.data.user));
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return {
+        success: false,
+        message: 'Failed to update profile'
+      };
+    }
+  };
+
   // Forgot password functions - using WhatsApp via Interakt
   const forgotPasswordSendOTP = async (phoneNumber: string) => {
     try {
@@ -815,6 +908,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     processQRCode,
     processRecharge,
     updateUserPoints,
+    updateUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

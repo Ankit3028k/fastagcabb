@@ -25,10 +25,6 @@ export default function TermsScreen() {
             FASTAG CABLE PRIVATE LIMITED ELECTRICIAN WELFARE SCHEME  01/APRIL/25 TO 01/SEP/25
           </Text>
 
-          
-
-        
-
           {/* Rewards Program */}
           <Text style={[styles.sectionTitle, { color: colors.primary }]}>Exclusive Rewards Program for Electricians</Text>
           <Text style={[styles.paragraph, { color: colors.textSecondary }]}>

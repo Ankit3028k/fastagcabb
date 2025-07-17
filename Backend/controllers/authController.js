@@ -34,8 +34,8 @@ const INFOBIP_CONFIG = {
 // OTP Helper Functions
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-const storeOTP = async (phoneNumber, otp) => {
-  const key = `otp:${phoneNumber}`;
+const storeOTP = async (phoneNumber, otp, type = 'registration') => {
+  const key = type === 'forgot_password' ? `otp:forgot_password:${phoneNumber}` : `otp:${phoneNumber}`;
   try {
     if (redis) {
       await redis.set(key, otp, 'EX', 15 * 60); // 15 minutes expiry
@@ -57,11 +57,12 @@ const storeOTP = async (phoneNumber, otp) => {
   }
 };
 
-const verifyStoredOTP = async (phoneNumber, enteredOTP) => {
-  const key = `otp:${phoneNumber}`;
+const verifyStoredOTP = async (phoneNumber, enteredOTP, type = 'registration') => {
+  const key = type === 'forgot_password' ? `otp:forgot_password:${phoneNumber}` : `otp:${phoneNumber}`;
   console.log('🔍 Verifying OTP for phone:', phoneNumber);
   console.log('🔍 Storage key:', key);
   console.log('🔍 Entered OTP:', enteredOTP);
+  console.log('🔍 OTP type:', type);
 
   try {
     let storedOTP = null;
@@ -203,14 +204,30 @@ export const register = async (req, res) => {
       role: sanitize(role || 'Electrician')
     };
 
-    // Check if user exists
-    const existingUser = await asyncRetry(
-      async () => await User.findOne({ phoneNumber: sanitizedData.phoneNumber }).maxTimeMS(15000),
-      { retries: 3, minTimeout: 1000, factor: 2 }
-    );
+    // Check for existing users with comprehensive field validation
+    const conflictChecks = [
+      { field: 'phoneNumber', value: sanitizedData.phoneNumber, message: 'Phone number already registered' },
+      { field: 'adharNumber', value: sanitizedData.adharNumber, message: 'Adhar number already registered' },
+      { field: 'panCardNumber', value: sanitizedData.panCardNumber, message: 'PAN card number already registered' },
+      { field: 'dealerCode', value: sanitizedData.dealerCode, message: 'Dealer code already in use' }
+    ];
 
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+    for (const check of conflictChecks) {
+      if (check.value) { // Only check if the field has a value
+        const existingUser = await asyncRetry(
+          async () => await User.findOne({ [check.field]: check.value }).maxTimeMS(15000),
+          { retries: 3, minTimeout: 1000, factor: 2 }
+        );
+
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: check.message,
+            field: check.field,
+            conflictingValue: check.value
+          });
+        }
+      }
     }
 
     // Validate file uploads
@@ -276,7 +293,23 @@ export const register = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Database timeout' });
     }
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+      // Extract the field name from the duplicate key error
+      const duplicateField = Object.keys(error.keyPattern || {})[0];
+      const fieldMessages = {
+        phoneNumber: 'Phone number already registered',
+        adharNumber: 'Adhar number already registered',
+        panCardNumber: 'PAN card number already registered',
+        dealerCode: 'Dealer code already in use',
+        email: 'Email address already registered'
+      };
+
+      const message = fieldMessages[duplicateField] || 'User already exists';
+      return res.status(400).json({
+        success: false,
+        message,
+        field: duplicateField,
+        error: 'DUPLICATE_KEY'
+      });
     }
     res.status(500).json({
       success: false,
@@ -526,6 +559,146 @@ export const resendOTP = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error while resending OTP',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+};
+
+// Forgot Password - Send OTP for password reset
+export const forgotPasswordSendOTP = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
+    const { phoneNumber } = req.body;
+    const sanitizedPhone = sanitize(phoneNumber);
+
+    // Check if user exists
+    const user = await asyncRetry(
+      async () => await User.findOne({ phoneNumber: sanitizedPhone }).maxTimeMS(15000),
+      { retries: 3, minTimeout: 1000, factor: 2 }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this phone number'
+      });
+    }
+
+    // Rate limiting
+    if (redis) {
+      const rateLimitKey = `forgot:rate:${sanitizedPhone}`;
+      try {
+        const attempts = await redis.get(rateLimitKey);
+        if (attempts && parseInt(attempts) >= 3) {
+          return res.status(429).json({
+            success: false,
+            message: 'Too many password reset requests. Try again later.'
+          });
+        }
+      } catch (redisError) {
+        console.warn('Redis rate limit check failed:', redisError.message);
+      }
+    }
+
+    const otp = generateOTP();
+    await storeOTP(sanitizedPhone, otp, 'forgot_password');
+
+    const message = `Your FASTAGCAB password reset code is ${otp}. Valid for 15 minutes. Do not share this code.`;
+
+    // Update rate limit counter
+    if (redis) {
+      try {
+        const rateLimitKey = `forgot:rate:${sanitizedPhone}`;
+        await redis.incr(rateLimitKey);
+        await redis.expire(rateLimitKey, 24 * 60 * 60); // 24 hours expiry
+      } catch (redisError) {
+        console.warn('Redis rate limit update failed:', redisError.message);
+      }
+    }
+
+    console.log('📱 Password reset OTP generated:', otp);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset code sent to your phone number',
+      data: {
+        to: sanitizedPhone,
+        ...(process.env.NODE_ENV !== 'production' && { testOtp: otp })
+      }
+    });
+  } catch (error) {
+    console.error('❌ Forgot password send OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while sending password reset code',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+};
+
+// Verify OTP and Reset Password
+export const resetPasswordWithOTP = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
+    const { phoneNumber, otp, newPassword } = req.body;
+    const sanitizedPhone = sanitize(phoneNumber);
+    const sanitizedOtp = sanitize(otp);
+
+    // Verify OTP
+    const verificationResult = await verifyStoredOTP(sanitizedPhone, sanitizedOtp, 'forgot_password');
+
+    if (!verificationResult.success) {
+      return res.status(400).json(verificationResult);
+    }
+
+    // Find user and update password
+    const user = await asyncRetry(
+      async () => await User.findOne({ phoneNumber: sanitizedPhone }).maxTimeMS(15000),
+      { retries: 3, minTimeout: 1000, factor: 2 }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update password (will be hashed by pre-save middleware)
+    user.password = newPassword;
+    await user.save();
+
+    // Clear any stored OTPs for this phone number
+    if (redis) {
+      try {
+        const otpKey = `otp:${sanitizedPhone}`;
+        const forgotOtpKey = `otp:forgot_password:${sanitizedPhone}`;
+        await redis.del(otpKey);
+        await redis.del(forgotOtpKey);
+      } catch (redisError) {
+        console.warn('Redis OTP cleanup failed:', redisError.message);
+      }
+    }
+
+    console.log('✅ Password reset successful for:', sanitizedPhone);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now login with your new password.'
+    });
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while resetting password',
       ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }

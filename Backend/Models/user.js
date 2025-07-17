@@ -37,6 +37,8 @@ const userSchema = new mongoose.Schema({
     adharNumber: {
         type: String,
         trim: true,
+        unique: true,
+        sparse: true, // Allow multiple null values but unique non-null values
         match: [
             /^\d{12}$/,
             'Adhar number must be 12 digits'
@@ -46,6 +48,8 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true,
         uppercase: true,
+        unique: true,
+        sparse: true, // Allow multiple null values but unique non-null values
         match: [
             /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
             'Please enter a valid PAN card number'
@@ -80,7 +84,8 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Dealer code is required'],
         trim: true,
-        uppercase: true
+        uppercase: true,
+        unique: true
     },
     role: {
         type: String,

@@ -4,7 +4,7 @@ const Notification = require('../models/Notification');
 // Initialize Firebase Admin SDK
 // You need to download your service account key from Firebase Console
 const serviceAccount = require('../config/firebase-service-account.json');
-
+ 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
